@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Service account keys and environment files
+service_account.json
+*.env

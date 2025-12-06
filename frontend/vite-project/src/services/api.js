@@ -4,7 +4,14 @@ export async function getCourses() {
   const res = await fetch(`${API_BASE}/courses`);
   return res.json();
 }
-
+export async function getTracks() {
+  const res = await fetch(`${API_BASE}/tracks`);
+  return res.json();
+}
+export async function getMinors() {
+  const res = await fetch(`${API_BASE}/minors`);
+  return res.json();
+}
 export async function getTermTemplate() {
   const res = await fetch(`${API_BASE}/term-template`);
   return res.json();

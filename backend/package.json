@@ -1,0 +1,15 @@
+{
+  "name": "sheets-backend",
+  "version": "1.0.0",
+  "description": "Backend for accessing Google Sheets via service account",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.22.1",
+    "googleapis": "^167.0.0"
+  }
+}
