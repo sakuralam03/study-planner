@@ -30,3 +30,21 @@ export async function getProgress() {
   const res = await fetch(`${API_BASE}/progress`);
   return res.json();
 }
+
+async function testValidateSelection() {
+  const res = await fetch("http://localhost:3000/validate-selection", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ selection: ["CS101", "MA102"] })
+  });
+
+  if (!res.ok) {
+    throw new Error(`HTTP error! status: ${res.status}`);
+  }
+
+  const data = await res.json();
+  console.log(data);
+}
+
+// Call it
+testValidateSelection();
