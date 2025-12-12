@@ -5,50 +5,91 @@ const { readSheet } = require("./sheets");
 const app = express();
 const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
 
-// Allow requests from your frontend origin
 app.use(cors({ origin: "http://localhost:5173" }));
-app.use(express.json()); // to parse JSON bodies
+app.use(express.json());
+
 let cache = {};
 
-
+// ---------- Helpers ----------
 async function getSheetData(range) {
   if (cache[range]) return cache[range];
   const data = await readSheet(spreadsheetId, range);
   cache[range] = data;
   return data;
 }
+
+function normalize(str) {
+  if (!str) return "";
+  const cleaned = str
+    .toString()
+    .trim()
+    .replace(/\s+/g, "")   // remove all spaces/tabs
+    .replace(/^-$/, "");   // ignore "-" placeholders
+  return cleaned.toUpperCase();
+}
+
+function normalizeArray(arr) {
+  return (arr || []).map(normalize).filter(Boolean);
+}
+
+function mapRowsWithHeaders(data) {
+  const headers = (data[0] || []).map(h => (h ?? "").toString().trim().toLowerCase());
+  return data.slice(1).map((row, idx) => {
+    const obj = { id: idx };
+    headers.forEach((h, i) => {
+      obj[h] = (row[i] ?? "").toString();
+    });
+    return obj;
+  });
+}
+
+function sortTermsNatural(termNames) {
+  // Expect labels like "Term 4", "Term 5"; fallback to given order if no numbers found.
+  return [...termNames].sort((a, b) => {
+    const na = parseInt(String(a).match(/\d+/)?.[0] || "9999", 10);
+    const nb = parseInt(String(b).match(/\d+/)?.[0] || "9999", 10);
+    return na - nb;
+  });
+}
+function toCodes(listStr) {
+  return listStr
+    .split(",")
+    .map(normalize)
+    .filter(Boolean); // drop empty results
+}
+
+
+// ---------- Endpoints ----------
 app.get("/courses", async (req, res) => {
   try {
     const term = req.query.term;
-    const data = await getSheetData("Courses!A:H");
+    const raw = await getSheetData("Courses!A:H");
+    const rows = mapRowsWithHeaders(raw);
 
-    // Map rows into clean objects
-    let courses = data.slice(1).map((row, idx) => ({
-      id: idx,
-      course_code: row[0],
-      course_name: row[1],
-      credits: row[2],
-      type: row[3],
-      term_offered: row[4]
+    // Normalize values while keeping readable names
+    const courses = rows.map(r => ({
+      id: r.id,
+      course_code: normalize(r["course_code"]),
+      course_name: (r["course_name"] ?? "").trim(), // keep readable
+      credits: parseInt((r["credits"] ?? "").toString().trim(), 10) || 0,
+      type: normalize(r["type"]),
+      term_offered: (r["term_offered"] ?? "").toString().trim(),
+      pillar: normalize(r["pillar"]),
+      track_tags: (r["track_tags"] ?? "").toString().trim(),
+      minor_tags: (r["minor_tags"] ?? "").toString().trim()
     }));
 
-    // Filter by term if query provided
-    if (term) {
-      courses = courses.filter(c => String(c.term_offered) === String(term));
-    }
-
-    res.json({ courses });
+    const filtered = term ? courses.filter(c => String(c.term_offered) === String(term)) : courses;
+    res.json({ courses: filtered });
   } catch (err) {
     console.error(err);
     res.status(500).send(err.message);
   }
 });
 
-
-
 app.get("/prerequisites", async (req, res) => {
   try {
-    const data = await getSheetData("Pre requisites!A:C");
+    const data = await getSheetData("Prerequisites!A:C");
     res.json({ prerequisites: data });
   } catch (err) {
     res.status(500).send(err.message);
@@ -57,192 +98,288 @@ app.get("/prerequisites", async (req, res) => {
 
 app.get("/tracks", async (req, res) => {
   try {
-    const data = await getSheetData("Tracks!A:G");
-    const headers = data[0]; // first row
-    const tracks = data.slice(1).map((row, idx) => {
-      let obj = { id: idx };
-      headers.forEach((h, i) => {
-        obj[h] = row[i];
-      });
-      return obj;
-    });
+    const raw = await getSheetData("Tracks!A:G");
+    const rows = mapRowsWithHeaders(raw);
+
+    const tracks = rows.map(r => ({
+      id: r.id,
+      track_name: (r["track_name"] ?? "").toString().trim(),
+      required_courses: (r["required_courses"] ?? "").toString(),
+      choice_group: (r["choice_group"] ?? "").toString(),
+      min_courses_needed: parseInt((r["min_courses_needed"] ?? "0"), 10) || 0,
+      elective_pool_codes: (r["elective_pool_codes"] ?? "").toString(),
+      elective_pool_pillars: (r["elective_pool_pillars"] ?? "").toString(),
+      elective_min: parseInt((r["elective_min"] ?? "0"), 10) || 0
+    }));
+
     res.json({ tracks });
   } catch (err) {
     res.status(500).send(err.message);
   }
 });
+
 app.get("/minors", async (req, res) => {
   try {
-    const data = await getSheetData("Minors!A:E");
-    const headers = data[0]; // first row
-    const minors = data.slice(1).map((row, idx) => {
-      let obj = { id: idx };
-      headers.forEach((h, i) => {
-        obj[h] = row[i];
-      });
-      return obj;
-    });
+    const raw = await getSheetData("Minors!A:E");
+    const rows = mapRowsWithHeaders(raw);
+
+    const minors = rows.map(r => ({
+      id: r.id,
+      minor_name: (r["minor_name"] ?? "").toString().trim(),
+      mandatory_courses: (r["mandatory_courses"] ?? "").toString(),
+      choice_courses: (r["choice_courses"] ?? "").toString(),
+      choice_min: parseInt((r["choice_min"] ?? "0"), 10) || 0
+    }));
+
     res.json({ minors });
   } catch (err) {
     res.status(500).send(err.message);
   }
 });
 
-
-
 app.get("/term-template", async (req, res) => {
   try {
-    const data = await getSheetData("term template!A:E");
-    const headers = data[0];
-const termTemplate = data.slice(1).map((row, idx) => {
-  let obj = { id: idx };
-  headers.forEach((h, i) => {
-    obj[h] = row[i];
-  });
-  return obj;
-});
-
-
+    const raw = await getSheetData("term template!A:E");
+    const termTemplate = mapRowsWithHeaders(raw);
     res.json({ termTemplate });
   } catch (err) {
     res.status(500).send(err.message);
   }
 });
+
 app.get("/progress", async (req, res) => {
   try {
-    // Return some placeholder or computed progress data
     res.json({ progress: "Not implemented yet" });
   } catch (err) {
     res.status(500).send(err.message);
   }
 });
 
-
-
+// --- Validate Selection ---
 app.post("/validate-selection", async (req, res) => {
-      console.log("Route hit", req.body);
   try {
-    const selectedCourses = req.body.selection || [];
+    const selection = req.body.selection ?? [];
+    const isTermStructured = !Array.isArray(selection);
 
-    // Load sheets
-    const prereqs = await readSheet(spreadsheetId, "Pre requisites!A:C");
-    const tracks = await readSheet(spreadsheetId, "Tracks!A:G");
-    const minors = await readSheet(spreadsheetId, "Minors!A:E");
-    const courses = await readSheet(spreadsheetId, "Courses!A:H"); 
-    // assuming columns: A=code, B=name, C=credits, D=category, E=term_offered, ...
+    // Build term-aware structures
+    let selectionByTerm = {};
+    let allSelected = [];
 
-    // --- 1. Check prerequisites ---
+    if (isTermStructured) {
+      const orderedTerms = sortTermsNatural(Object.keys(selection));
+      orderedTerms.forEach(t => {
+        selectionByTerm[t] = normalizeArray(selection[t] || []);
+      });
+      allSelected = Object.values(selectionByTerm).flat().map(normalize);
+
+    } else {
+      // Flat array: treat as single "Term 0" for presence checks; timing cannot be enforced strictly
+      const normalized = normalizeArray(selection);
+      selectionByTerm["Term 0"] = normalized;
+      allSelected = normalized;
+    }
+
+    // course -> term index map
+    const termNames = Object.keys(selectionByTerm);
+    const courseToTerm = {};
+    termNames.forEach((term, idx) => {
+      (selectionByTerm[term] || []).forEach(code => {
+        courseToTerm[code] = idx;
+      });
+    });
+
+    // Load sheets and sanitize
+    const prereqsRaw = await getSheetData("Prerequisites!A:C");
+    const tracksRaw = await getSheetData("Tracks!A:G");
+    const minorsRaw = await getSheetData("Minors!A:E");
+    const coursesRaw = await getSheetData("Courses!A:H");
+
+    const tracksRows = mapRowsWithHeaders(tracksRaw);
+    const minorsRows = mapRowsWithHeaders(minorsRaw);
+    const coursesRows = mapRowsWithHeaders(coursesRaw);
+
+    const tracks = tracksRows.map(r => ({
+      track_name: (r["track_name"] ?? "").toString().trim(),
+      required_courses: (r["required_courses"] ?? "").toString(),
+      min_courses_needed: parseInt((r["min_courses_needed"] ?? "0"), 10) || 0,
+      elective_pool_codes: (r["elective_pool_codes"] ?? "").toString(),
+      elective_pool_pillars: (r["elective_pool_pillars"] ?? "").toString(),
+      elective_min: parseInt((r["elective_min"] ?? "0"), 10) || 0
+    }));
+
+    const minors = minorsRows.map(r => ({
+      minor_name: (r["minor_name"] ?? "").toString().trim(),
+      mandatory_courses: (r["mandatory_courses"] ?? "").toString(),
+      choice_courses: (r["choice_courses"] ?? "").toString(),
+      choice_min: parseInt((r["choice_min"] ?? "0"), 10) || 0
+    }));
+
+    const courses = coursesRows.map(r => ({
+      course_code: normalize(r["course_code"]),
+      course_name: (r["course_name"] ?? "").toString().trim(),
+      credits: parseInt((r["credits"] ?? "").toString().trim(), 10) || 0,
+      type: normalize(r["type"]),
+      term_offered: (r["term_offered"] ?? "").toString().trim(),
+      pillar: normalize(r["pillar"])
+    }));
+
+    // Debug logs
+    console.log("Selected courses:", allSelected);
+    console.log("First few courses from sheet:", courses.slice(0, 5));
+    console.log("First few tracks:", tracks.slice(0, 3));
+    console.log("First few prereqs:", prereqsRaw.slice(0, 5));
+
+    // --- 1. Prerequisites with term awareness ---
     const unmet = [];
-    prereqs.forEach(row => {
-      const [course, prereq, type] = row;
-      if (selectedCourses.includes(course)) {
-        if (type === "Pre" && !selectedCourses.includes(prereq)) {
-          unmet.push(`${course} requires ${prereq} before enrollment`);
+    // Skip header row in prereqs if present
+    const prereqRows = prereqsRaw.slice(1);
+    prereqRows.forEach(row => {
+      const [rawCourse, rawPrereq, rawType] = row;
+      const course = normalize(rawCourse);
+      const prereq = normalize(rawPrereq);
+      const type = (rawType ?? "").toString().trim(); // Keep case as input "Pre"/"Co"
+
+      // Only evaluate for selected courses
+      if (courseToTerm[course] !== undefined) {
+        const courseTerm = courseToTerm[course];
+        const prereqTerm = courseToTerm[prereq];
+
+        if (type === "Pre") {
+          if (isTermStructured) {
+            // Must be in an earlier term
+            if (prereqTerm === undefined || prereqTerm >= courseTerm) {
+              unmet.push(`${course} requires ${prereq} before enrollment`);
+            }
+          } else {
+            // Flat selection: only check presence
+            if (prereqTerm === undefined) {
+              unmet.push(`${course} requires ${prereq} before enrollment`);
+            }
+          }
         }
-        if (type === "Co" && !selectedCourses.includes(prereq)) {
-          unmet.push(`${course} requires ${prereq} taken concurrently`);
+
+        if (type === "Co") {
+          if (isTermStructured) {
+            // Must be in the same term OR any earlier term
+            if (prereqTerm === undefined || prereqTerm > courseTerm) {
+              unmet.push(`${course} requires ${prereq} taken concurrently or in an earlier term`);
+            }
+          } else {
+            // Flat selection: only check presence
+            if (prereqTerm === undefined) {
+              unmet.push(`${course} requires ${prereq} taken concurrently or earlier`);
+            }
+          }
         }
+
       }
     });
 
-    // --- 2. Check tracks ---
-function checkGroup(group, selectedCourses) {
-  const requiredCount = group.requiredCourses.filter(c => selectedCourses.includes(c)).length;
-  const requiredMet = requiredCount >= group.minCoursesNeeded;
+    // --- 2. Tracks ---
+    function toCodes(listStr) {
+      return listStr
+        .split(",")
+        .map(s => s.replace(/\t/g, " "))
+        .map(normalize)
+        .filter(Boolean);
+    }
 
-  const electivePool = [...group.electivePoolCodes, ...group.electivePoolPillars];
-  const electiveCount = electivePool.filter(c => selectedCourses.includes(c)).length;
-  const electiveMet = electiveCount >= group.electiveMin;
+    function checkGroup(group, selected) {
+      const requiredCount = group.requiredCourses.filter(c => selected.includes(c)).length;
+      const requiredMet = requiredCount >= group.minCoursesNeeded;
 
-  return requiredMet && electiveMet;
-}
+      const electivePool = [...group.electivePoolCodes, ...group.electivePoolPillars];
+      const electiveCount = electivePool.filter(c => selected.includes(c)).length;
+      const electiveMet = electiveCount >= group.electiveMin;
+
+      return requiredMet && electiveMet;
+    }
 
 const fulfilledTracks = [];
-tracks.forEach(row => {
-  const [track_name, required_courses, choice_group, min_courses_needed, elective_pool_codes, elective_pool_pillars, elective_min] = row;
+tracks.forEach(track => {
+  let electivePool = toCodes(track.elective_pool_codes || []);
+  if (track.elective_pool_pillars.includes("ISTD")) {
+    electivePool = electivePool.concat(
+      courses.filter(c => c.pillar === "ISTD" && c.type === "ELECTIVE").map(c => c.course_code)
+    );
+  }
 
   const group = {
-    requiredCourses: required_courses.split(",").map(c => c.trim()),
-    minCoursesNeeded: parseInt(min_courses_needed, 10) || 0,
-    electivePoolCodes: elective_pool_codes.split(",").map(c => c.trim()),
-    electivePoolPillars: elective_pool_pillars.split(",").map(c => c.trim()),
-    electiveMin: parseInt(elective_min, 10) || 0
+    requiredCourses: toCodes(track.required_courses || ""),
+    minCoursesNeeded: track.min_courses_needed || 0,
+    electivePoolCodes: electivePool,
+    electivePoolPillars: [], // already merged above
+    electiveMin: track.elective_min || 0
   };
 
-  // If you have multiple rows for the same track (Group A, Group B),
-  // collect them and check each group separately:
-  const groupFulfilled = checkGroup(group, selectedCourses);
-
-  if (groupFulfilled && !fulfilledTracks.includes(track_name)) {
-    fulfilledTracks.push(track_name);
+  if (checkGroup(group, allSelected) && !fulfilledTracks.includes(track.track_name)) {
+    fulfilledTracks.push(track.track_name);
   }
 });
 
 
-    // --- 3. Check minors ---
+    // --- 3. Minors ---
+function toCodes(listStr) {
+  return listStr
+    .split(",")
+    .map(s => s.replace(/\t/g, " ").trim())
+    .filter(c => c && c !== "-")
+    .map(normalize);
+}
+
 const fulfilledMinors = [];
 const minorsByName = {};
 
-// Group rows by minor_name
-minors.forEach(row => {
-  const [minor_name, mandatory_courses, choice_group, choice_courses, choice_min] = row;
-
-  if (!minorsByName[minor_name]) {
-    minorsByName[minor_name] = [];
-  }
-
-  minorsByName[minor_name].push({
-    mandatoryCourses: mandatory_courses === "-" ? [] : mandatory_courses.split(",").map(c => c.trim()),
-    choiceCourses: choice_courses.split(",").map(c => c.trim()),
-    choiceMin: parseInt(choice_min, 10) || 0
+// Group rows by minor name
+minors.forEach(m => {
+  const name = m.minor_name;
+  if (!minorsByName[name]) minorsByName[name] = [];
+  minorsByName[name].push({
+    mandatoryCourses: toCodes(m.mandatory_courses || ""),
+    choiceGroup: m.choice_group,
+    choiceCourses: toCodes(m.choice_courses || ""),
+    choiceMin: parseInt(m.choice_min || "0", 10)
   });
 });
 
-
-// Check each minor
 Object.entries(minorsByName).forEach(([minorName, groups]) => {
-  const allGroupsFulfilled = groups.every(group => {
-    const mandatoryMet = group.mandatoryCourses.every(c => selectedCourses.includes(c));
-    const choiceCount = group.choiceCourses.filter(c => selectedCourses.includes(c)).length;
-    const choiceMet = choiceCount >= group.choiceMin;
-    return mandatoryMet && choiceMet;
+  // 1. Collect all mandatory courses
+  const allMandatory = groups.flatMap(g => g.mandatoryCourses);
+  const mandatoryMet = allMandatory.length === 0 || allMandatory.every(c => allSelected.includes(c));
+
+  // 2. Check each group’s choiceMin
+  const allGroupsMet = groups.every(group => {
+    if (group.choiceCourses.length === 0) return true; // skip empty groups
+    const count = group.choiceCourses.filter(c => allSelected.includes(c)).length;
+    console.log(`Minor ${minorName} - Group ${group.choiceGroup}: need ${group.choiceMin}, found ${count}`);
+    return count >= group.choiceMin;
   });
 
-  if (allGroupsFulfilled) {
+  console.log(`Minor ${minorName}: mandatoryMet=${mandatoryMet}, allGroupsMet=${allGroupsMet}`);
+  if (mandatoryMet && allGroupsMet) {
     fulfilledMinors.push(minorName);
   }
 });
 
-    // --- 4. Check credit requirements ---
-let hassCredits = 0;
-let electiveCredits = 0;
-let coreCredits = 0;
 
-courses.forEach(row => {
-  const [
-    course_code,
-    course_name,
-    credits,
-    type,          // "core" or "elective"
-    term_offered,
-    pillar,        // "ISTD", "HASS", etc.
-    track_tags,
-    minor_tags
-  ] = row;
 
-  if (selectedCourses.includes(course_code)) {
-    const creditVal = parseInt(credits, 10) || 0;
+    // --- 4. Credits ---
+    let hassCredits = 0, electiveCredits = 0, coreCredits = 0;
+    courses.forEach(course => {
+      if (allSelected.includes(course.course_code)) {
+        const creditVal = course.credits || 0;
+        const pillar = course.pillar; // normalized
+        const type = course.type; // normalized
 
-    if (pillar.trim().toUpperCase()  === "HASS") {
-      hassCredits += creditVal;
-    } else if (type.trim().toLowerCase()  === "elective" && pillar.trim().toUpperCase()  === "ISTD") {
-      electiveCredits += creditVal;
-    } else if (type.trim().toLowerCase() === "core" && pillar.trim().toUpperCase() === "ISTD") {
-      coreCredits += creditVal;
-    }
-  }
-});
-
+        if (pillar === "HASS") {
+          hassCredits += creditVal;
+        } else if (type === "ELECTIVE" && pillar === "ISTD") {
+          electiveCredits += creditVal;
+        } else if (type === "CORE" && pillar === "ISTD") {
+          coreCredits += creditVal;
+        }
+      }
+    });
 
     const creditStatus = {
       hassMet: hassCredits >= 60,
@@ -253,17 +390,12 @@ courses.forEach(row => {
       coreCredits
     };
 
-    res.json({
-      unmet,
-      fulfilledTracks,
-      fulfilledMinors,
-      creditStatus
-    });
+    res.json({ unmet, fulfilledTracks, fulfilledMinors, creditStatus });
   } catch (err) {
-    res.status(500).send(err.message);
+    console.error("Validation error:", err);
+    res.status(500).json({ error: true, message: err.message, stack: err.stack });
   }
 });
 
-
+// --- Start server ---
 app.listen(3000, () => console.log("Server running on http://localhost:3000"));
-

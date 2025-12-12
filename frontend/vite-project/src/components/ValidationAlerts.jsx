@@ -47,9 +47,9 @@ async function check() {
         <>
           <h3>Credit Requirements</h3>
           <ul>
-            <li>HASS: {credits.hassCredits} / 60 {credits.hassMet ? "✅" : "❌"}</li>
-            <li>Electives: {credits.electiveCredits} / 96 {credits.electiveMet ? "✅" : "❌"}</li>
-            <li>ISTD Core: {credits.coreCredits} / 60 {credits.coreMet ? "✅" : "❌"}</li>
+            <li>HASS: {credits.hassCredits} / 60 </li>
+            <li>Electives: {credits.electiveCredits} / 96 </li>
+            <li>ISTD Core: {credits.coreCredits} / 60 </li>
           </ul>
         </>
       )}
