@@ -4,12 +4,11 @@ import {
   getMinors,
   getCourses,
   getTermTemplate,
-  validateSelection,
-  getProgress,
 } from "./services/api";
 import CourseDropdown from "./components/CourseDropdown";
 import ValidationAlerts from "./components/ValidationAlerts";
-import ProgressDashboard from "./components/ProgressDashboard";
+import ResultsDownload from "./components/ResultsDownload.jsx";
+
 
 export default function App() {
   const [tracks, setTracks] = useState([]);
@@ -18,22 +17,28 @@ export default function App() {
   const [selectedMinor, setSelectedMinor] = useState("");
   const [termTemplate, setTermTemplate] = useState([]);
   const [courses, setCourses] = useState([]);
-  const [selection, setSelection] = useState({}); // { term1: [c1,c2,c3,c4], term2: [...] }
+  const [selection, setSelection] = useState({});
+  const [results, setResults] = useState(null);
 
-useEffect(() => {
-  async function loadData() {
-    const tracksRes = await getTracks();
-    setTracks(tracksRes.tracks);   
-    const minorsRes = await getMinors();
-    setMinors(minorsRes.minors); 
-    const coursesRes = await getCourses();
-    setCourses(coursesRes.courses);  
-    const termTemplateRes = await getTermTemplate();
-    setTermTemplate(termTemplateRes.termTemplate);  
-  }
-  loadData();
-}, []);
+  // Load initial data
+  useEffect(() => {
+    async function loadData() {
+      const tracksRes = await getTracks();
+      setTracks(tracksRes.tracks);
 
+      const minorsRes = await getMinors();
+      setMinors(minorsRes.minors);
+
+      const coursesRes = await getCourses();
+      setCourses(coursesRes.courses);
+
+      const termTemplateRes = await getTermTemplate();
+      setTermTemplate(termTemplateRes.termTemplate);
+    }
+    loadData();
+  }, []);
+
+  // Handle course selection in planner grid
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection((prev) => {
       const updated = { ...prev };
@@ -42,11 +47,24 @@ useEffect(() => {
       return updated;
     });
   };
-  // Group minors by minor_name
+
+  // Validate selection against backend
+  async function validateSelection(userSelection) {
+    setSelection(userSelection);
+
+    const response = await fetch("http://localhost:3000/validate-selection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ selection: userSelection }),
+    });
+
+    const data = await response.json();
+    setResults(data);
+  }
+
+  // Group minors by name for ValidationAlerts
   const groupedMinors = minors.reduce((acc, m) => {
-    if (!acc[m.minor_name]) {
-      acc[m.minor_name] = [];
-    }
+    if (!acc[m.minor_name]) acc[m.minor_name] = [];
     acc[m.minor_name].push(m);
     return acc;
   }, {});
@@ -55,62 +73,45 @@ useEffect(() => {
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
       <h1>Course Planner Dashboard</h1>
 
-      {/* Track & Minor Selection */}
+      {/* Term Planner Grid */}
       <section>
-        <h2>Choose Track and Minor</h2>
-        <label>
-          Track:
-          <select
-            value={selectedTrack}
-            onChange={(e) => setSelectedTrack(e.target.value)}
-          >
-            <option value="">--Select Track--</option>
-            {tracks.map((t,idx) => (
-              <option key={idx} value={t.track_name}>{t.track_name}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Minor:
-    <select
-  value={selectedMinor}
-  onChange={(e) => setSelectedMinor(e.target.value)}
->
-  <option value="">--Select Minor--</option>
-  {Object.keys(groupedMinors).map((minorName, idx) => (
-    <option key={idx} value={minorName}>{minorName}</option>
-  ))}
-</select>
-
-        </label>
-      </section>
-
-     {/* Term Planner Grid */}
-<section>
-  <h2>Term Planner</h2>
-  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
-    {Array.from({ length: 11 }).map((_, termIndex) => {
-      const termCourses = courses.filter(
-        (c) => String(c.term_offered) === String(termIndex + 1)
-      );
-      return (
-        <div key={termIndex} style={{ border: "1px solid #ccc", padding: "10px" }}>
-          <h3>Term {termIndex + 1 <= 8 ? termIndex + 1 : `Extra ${termIndex - 7}`}</h3>
-          {Array.from({ length: 4 }).map((_, slotIndex) => (
-            <CourseDropdown
-              key={slotIndex}
-              courses={termCourses}   // ✅ only courses for this term
-              onSelect={(courseCode) =>
-                handleCourseSelect(termIndex + 1, slotIndex, courseCode)
-              }
-            />
-          ))}
+        <h2>Term Planner</h2>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "20px",
+          }}
+        >
+          {Array.from({ length: 11 }).map((_, termIndex) => {
+            const termCourses = courses.filter(
+              (c) => String(c.term_offered) === String(termIndex + 1)
+            );
+            return (
+              <div
+                key={termIndex}
+                style={{ border: "1px solid #ccc", padding: "10px" }}
+              >
+                <h3>
+                  Term{" "}
+                  {termIndex + 1 <= 8
+                    ? termIndex + 1
+                    : `Extra ${termIndex - 7}`}
+                </h3>
+                {Array.from({ length: 4 }).map((_, slotIndex) => (
+                  <CourseDropdown
+                    key={slotIndex}
+                    courses={termCourses}
+                    onSelect={(courseCode) =>
+                      handleCourseSelect(termIndex + 1, slotIndex, courseCode)
+                    }
+                  />
+                ))}
+              </div>
+            );
+          })}
         </div>
-      );
-    })}
-  </div>
-</section>
-
+      </section>
 
       {/* Validation */}
       <section>
@@ -123,11 +124,13 @@ useEffect(() => {
         />
       </section>
 
-      {/* Progress */}
-      <section>
-        <h2>Progress Dashboard</h2>
-        <ProgressDashboard selection={selection} />
-      </section>
+      {/* Trigger validation manually (example) */}
+   <button onClick={() => validateSelection(selection)}>
+  Validate Selection
+</button>
+
+      {/* Download Excel only when results exist */}
+      {results && <ResultsDownload selection={selection} results={results} />}
     </div>
   );
 }

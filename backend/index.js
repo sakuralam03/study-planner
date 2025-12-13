@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const { readSheet } = require("./sheets");
+const ExcelJS = require("exceljs");
 
 const app = express();
 const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
@@ -154,6 +155,36 @@ app.get("/progress", async (req, res) => {
     res.status(500).send(err.message);
   }
 });
+
+
+
+app.post("/download-excel", async (req, res) => {
+  const { selection, results } = req.body; // include input + output
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Validation Results");
+
+  // Input sheet
+  const inputSheet = workbook.addWorksheet("Selection");
+  Object.entries(selection).forEach(([term, courses]) => {
+    inputSheet.addRow([term, ...courses]);
+  });
+
+  // Output sheet
+  sheet.addRow(["Unmet", results.unmet.join(", ")]);
+  sheet.addRow(["Fulfilled Tracks", results.fulfilledTracks.join(", ")]);
+  sheet.addRow(["Fulfilled Minors", results.fulfilledMinors.join(", ")]);
+  sheet.addRow(["Credits", JSON.stringify(results.creditStatus)]);
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader("Content-Disposition", "attachment; filename=results.xlsx");
+  res.send(buffer);
+});
+
 
 // --- Validate Selection ---
 app.post("/validate-selection", async (req, res) => {
