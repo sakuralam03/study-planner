@@ -261,28 +261,25 @@ app.post("/validate-selection", async (req, res) => {
     console.log("First few prereqs:", prereqsRaw.slice(0, 5));
 
     // --- 1. Prerequisites with term awareness ---
+    // --- 1. Prerequisites with term awareness ---
     const unmet = [];
-    // Skip header row in prereqs if present
     const prereqRows = prereqsRaw.slice(1);
     prereqRows.forEach(row => {
       const [rawCourse, rawPrereq, rawType] = row;
       const course = normalize(rawCourse);
       const prereq = normalize(rawPrereq);
-      const type = (rawType ?? "").toString().trim(); // Keep case as input "Pre"/"Co"
+      const type = (rawType ?? "").toString().trim();
 
-      // Only evaluate for selected courses
       if (courseToTerm[course] !== undefined) {
         const courseTerm = courseToTerm[course];
         const prereqTerm = courseToTerm[prereq];
 
         if (type === "Pre") {
           if (isTermStructured) {
-            // Must be in an earlier term
             if (prereqTerm === undefined || prereqTerm >= courseTerm) {
               unmet.push(`${course} requires ${prereq} before enrollment`);
             }
           } else {
-            // Flat selection: only check presence
             if (prereqTerm === undefined) {
               unmet.push(`${course} requires ${prereq} before enrollment`);
             }
@@ -291,20 +288,45 @@ app.post("/validate-selection", async (req, res) => {
 
         if (type === "Co") {
           if (isTermStructured) {
-            // Must be in the same term OR any earlier term
             if (prereqTerm === undefined || prereqTerm > courseTerm) {
               unmet.push(`${course} requires ${prereq} taken concurrently or in an earlier term`);
             }
           } else {
-            // Flat selection: only check presence
             if (prereqTerm === undefined) {
               unmet.push(`${course} requires ${prereq} taken concurrently or earlier`);
             }
           }
         }
-
       }
     });
+
+    // --- NEW STEP: filter valid courses before tracks/minors ---
+    function prerequisitesMet(course) {
+      const prereqs = prereqRows.filter(r => normalize(r[0]) === course);
+      return prereqs.every(([rawCourse, rawPrereq, rawType]) => {
+        const prereq = normalize(rawPrereq);
+        const type = (rawType ?? "").toString().trim();
+        const courseTerm = courseToTerm[course];
+        const prereqTerm = courseToTerm[prereq];
+
+        if (type === "Pre") {
+          return isTermStructured
+            ? prereqTerm !== undefined && prereqTerm < courseTerm
+            : prereqTerm !== undefined;
+        }
+        if (type === "Co") {
+          return isTermStructured
+            ? prereqTerm !== undefined && prereqTerm <= courseTerm
+            : prereqTerm !== undefined;
+        }
+        return true;
+      });
+    }
+
+    const validSelected = allSelected.filter(c => prerequisitesMet(c));
+
+
+
 
     // --- 2. Tracks ---
     function toCodes(listStr) {
@@ -343,7 +365,7 @@ tracks.forEach(track => {
     electiveMin: track.elective_min || 0
   };
 
-  if (checkGroup(group, allSelected) && !fulfilledTracks.includes(track.track_name)) {
+  if (checkGroup(group, validSelected) && !fulfilledTracks.includes(track.track_name)) {
     fulfilledTracks.push(track.track_name);
   }
 });
@@ -379,12 +401,15 @@ Object.entries(minorsByName).forEach(([minorName, groups]) => {
   const mandatoryMet = allMandatory.length === 0 || allMandatory.every(c => allSelected.includes(c));
 
   // 2. Check each group’s choiceMin
-  const allGroupsMet = groups.every(group => {
-    if (group.choiceCourses.length === 0) return true; // skip empty groups
-    const count = group.choiceCourses.filter(c => allSelected.includes(c)).length;
-    console.log(`Minor ${minorName} - Group ${group.choiceGroup}: need ${group.choiceMin}, found ${count}`);
-    return count >= group.choiceMin;
-  });
+
+
+const allGroupsMet = groups.every(group => {
+  if (group.choiceCourses.length === 0) return true;
+  const count = group.choiceCourses.filter(c => validSelected.includes(c)).length;
+  console.log(`Minor ${minorName} - Group ${group.choiceGroup}: need ${group.choiceMin}, found ${count}`);
+  return count >= group.choiceMin;
+});
+
 
   console.log(`Minor ${minorName}: mandatoryMet=${mandatoryMet}, allGroupsMet=${allGroupsMet}`);
   if (mandatoryMet && allGroupsMet) {

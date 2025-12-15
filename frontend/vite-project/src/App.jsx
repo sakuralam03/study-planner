@@ -8,9 +8,12 @@ import {
 import CourseDropdown from "./components/CourseDropdown";
 import ValidationAlerts from "./components/ValidationAlerts";
 import ResultsDownload from "./components/ResultsDownload.jsx";
+import TermsModal from "./components/TermsModal.jsx";
+import LoginPage from "./components/LoginPage.jsx"; // ✅ fix typo
 
 
 export default function App() {
+  const [user, setUser] = useState(null);
   const [tracks, setTracks] = useState([]);
   const [minors, setMinors] = useState([]);
   const [selectedTrack, setSelectedTrack] = useState("");
@@ -19,8 +22,8 @@ export default function App() {
   const [courses, setCourses] = useState([]);
   const [selection, setSelection] = useState({});
   const [results, setResults] = useState(null);
+  const [agreed, setAgreed] = useState(false);
 
-  // Load initial data
   useEffect(() => {
     async function loadData() {
       const tracksRes = await getTracks();
@@ -38,7 +41,6 @@ export default function App() {
     loadData();
   }, []);
 
-  // Handle course selection in planner grid
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection((prev) => {
       const updated = { ...prev };
@@ -48,26 +50,34 @@ export default function App() {
     });
   };
 
-  // Validate selection against backend
   async function validateSelection(userSelection) {
     setSelection(userSelection);
-
     const response = await fetch("http://localhost:3000/validate-selection", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ selection: userSelection }),
     });
-
     const data = await response.json();
     setResults(data);
   }
 
-  // Group minors by name for ValidationAlerts
   const groupedMinors = minors.reduce((acc, m) => {
     if (!acc[m.minor_name]) acc[m.minor_name] = [];
     acc[m.minor_name].push(m);
     return acc;
   }, {});
+
+  // ✅ handle login first
+  if (!user) {
+    return <LoginPage onLogin={setUser} />;
+  }
+
+  // ✅ handle terms modal next
+  if (!agreed) {
+    return <TermsModal onAgree={() => setAgreed(true)} />;
+  }
+
+
 
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
@@ -76,27 +86,16 @@ export default function App() {
       {/* Term Planner Grid */}
       <section>
         <h2>Term Planner</h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "20px",
-          }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
           {Array.from({ length: 11 }).map((_, termIndex) => {
             const termCourses = courses.filter(
               (c) => String(c.term_offered) === String(termIndex + 1)
             );
             return (
-              <div
-                key={termIndex}
-                style={{ border: "1px solid #ccc", padding: "10px" }}
-              >
+              <div key={termIndex} style={{ border: "1px solid #ccc", padding: "10px" }}>
                 <h3>
                   Term{" "}
-                  {termIndex + 1 <= 8
-                    ? termIndex + 1
-                    : `Extra ${termIndex - 7}`}
+                  {termIndex + 1 <= 8 ? termIndex + 1 : `Extra ${termIndex - 7}`}
                 </h3>
                 {Array.from({ length: 4 }).map((_, slotIndex) => (
                   <CourseDropdown
@@ -124,12 +123,8 @@ export default function App() {
         />
       </section>
 
-      {/* Trigger validation manually (example) */}
-   <button onClick={() => validateSelection(selection)}>
-  Validate Selection
-</button>
+      <button onClick={() => validateSelection(selection)}>Validate Selection</button>
 
-      {/* Download Excel only when results exist */}
       {results && <ResultsDownload selection={selection} results={results} />}
     </div>
   );
