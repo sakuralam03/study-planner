@@ -1,7 +1,7 @@
 import React from "react";
 import { saveAs } from "file-saver";
 
-async function downloadExcel(selection, results) {
+async function downloadExcel(selection, results, studentId) {
   const response = await fetch("http://localhost:3000/download-excel", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -14,12 +14,14 @@ async function downloadExcel(selection, results) {
   }
 
   const blob = await response.blob();
-  saveAs(blob, "validation_results.xlsx");
+  // Use studentId in the filename
+  const filename = `${studentId}_study_plan.xlsx`;
+  saveAs(blob, filename);
 }
 
-export default function ResultsDownload({ selection, results }) {
+export default function ResultsDownload({ selection, results, studentId }) {
   return (
-    <button onClick={() => downloadExcel(selection, results)}>
+    <button onClick={() => downloadExcel(selection, results, studentId)}>
       Download Excel
     </button>
   );

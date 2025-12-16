@@ -1,6 +1,6 @@
-export default function CourseDropdown({ courses, onSelect }) {
+export default function CourseDropdown({ courses, value, onSelect }) {
   return (
-    <select onChange={e => onSelect(e.target.value)}>
+    <select value={value || ""} onChange={e => onSelect(e.target.value)}>
       <option value="">Select a course</option>
       {courses.map((c, idx) => (
         <option key={idx} value={c.course_code}>

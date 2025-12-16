@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { readSheet } = require("./sheets");
 const ExcelJS = require("exceljs");
+const connectDB = require("./db");
 
 const app = express();
 const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
@@ -58,6 +59,8 @@ function toCodes(listStr) {
     .map(normalize)
     .filter(Boolean); // drop empty results
 }
+
+
 
 
 // ---------- Endpoints ----------
@@ -184,6 +187,23 @@ app.post("/download-excel", async (req, res) => {
   res.setHeader("Content-Disposition", "attachment; filename=results.xlsx");
   res.send(buffer);
 });
+
+app.post("/save-plan", async (req, res) => {
+  const { studentId, selection, results } = req.body;
+  const db = await connectDB();
+  await db.collection("plans").insertOne({ studentId, selection, results, savedAt: new Date() });
+  res.json({ success: true });
+});
+
+app.get("/load-plan/:studentId", async (req, res) => {
+  const db = await connectDB();
+  const plans = await db.collection("plans")
+    .find({ studentId: req.params.studentId })
+    .sort({ savedAt: -1 })
+    .toArray();
+  res.json({ plans });
+});
+
 
 
 // --- Validate Selection ---
@@ -454,4 +474,8 @@ const allGroupsMet = groups.every(group => {
 });
 
 // --- Start server ---
-app.listen(3000, () => console.log("Server running on http://localhost:3000"));
+const PORT = process.env.PORT || 3000;  // use 4000 instead of 3000
+app.listen(PORT, () => {
+  console.log(`Backend running on http://localhost:${PORT}`);
+});
+

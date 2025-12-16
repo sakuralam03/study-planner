@@ -24,6 +24,7 @@ export async function validateSelection(selection) {
     body: JSON.stringify({ selection }),
   });
   return res.json();
+  
 }
 
 export async function getProgress() {
