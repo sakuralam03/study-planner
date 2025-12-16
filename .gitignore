@@ -22,6 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-# Service account keys and environment files
+# Ignore environment and service account files
+backend/.env
 backend/service_account.json
-*.env
