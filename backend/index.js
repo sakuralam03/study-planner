@@ -1,14 +1,22 @@
+require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const { readSheet } = require("./sheets");
 const ExcelJS = require("exceljs");
 const connectDB = require("./db");
-require('dotenv').config();
 
 const app = express();
 const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
 
-app.use(cors({ origin: "http://localhost:5173" }));
+// Enable CORS for both local dev and deployed frontend
+app.use(cors({
+  origin: [
+    "http://localhost:5173",              // local dev
+    "https://your-frontend.vercel.app"    // deployed frontend
+  ],
+  methods: ["GET", "POST"],
+}));
+
 app.use(express.json());
 
 let cache = {};

@@ -3,21 +3,14 @@ require('dotenv').config(); // only needed locally, Vercel injects env automatic
 const { MongoClient } = require("mongodb");
 
 const uri = process.env.MONGO_URI;
-if (!uri) {
-  throw new Error("MONGO_URI environment variable not set");
-}
-
 let client;
 let db;
 
 async function connectDB() {
   if (!client) {
-    client = new MongoClient(uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    client = new MongoClient(uri); // no extra options needed
     await client.connect();
-    db = client.db(process.env.DB_NAME || "studyPlanner"); // configurable
+    db = client.db(process.env.DB_NAME || "studyPlanner");
     console.log("✅ Connected to MongoDB");
   }
   return db;

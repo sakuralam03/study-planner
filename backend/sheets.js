@@ -1,7 +1,8 @@
 require('dotenv').config();
 const { google } = require('googleapis');
 
-const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+
 
 const auth = new google.auth.GoogleAuth({
   credentials,
