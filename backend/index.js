@@ -3,6 +3,7 @@ const cors = require("cors");
 const { readSheet } = require("./sheets");
 const ExcelJS = require("exceljs");
 const connectDB = require("./db");
+require('dotenv').config();
 
 const app = express();
 const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
