@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
 export default function Login({ onLogin }) {
   const [name, setName] = useState("");
@@ -11,21 +11,40 @@ export default function Login({ onLogin }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: "400px", margin: "auto" }}>
+    <form
+      onSubmit={handleSubmit}
+      style={{
+        maxWidth: "400px",
+        margin: "auto",
+        alignItems: "center",
+      }}
+    >
       <h2>Student Login</h2>
       <label>
         Name:
-        <input value={name} onChange={(e) => setName(e.target.value)} required />
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
       </label>
       <br />
       <label>
         Student ID:
-        <input value={studentId} onChange={(e) => setStudentId(e.target.value)} required />
+        <input
+          value={studentId}
+          onChange={(e) => setStudentId(e.target.value)}
+          required
+        />
       </label>
       <br />
       <label>
         Year of Admission:
-        <input value={year} onChange={(e) => setYear(e.target.value)} required />
+        <input
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          required
+        />
       </label>
       <br />
       <button type="submit">Login</button>

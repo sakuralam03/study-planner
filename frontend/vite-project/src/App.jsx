@@ -133,6 +133,21 @@ useEffect(() => {
     alert("Error saving plan.");
   }
 }
+function getSlotsForTerm(termIndex) {
+  // termIndex is 0-based, so term 1 = index 0
+  const termNumber = termIndex + 1;
+
+  if (termNumber <= 4) {
+    // Freshmore years (example: 4 terms, 4 slots each)
+    return 4;
+  } else if (termNumber <= 8) {
+    // Pillar years (example: 5 slots each)
+    return 5;
+  } else {
+    // Extra terms (vacation or beyond normal duration)
+    return 3; // you can adjust this
+  }
+}
 
 
   const groupedMinors = minors.reduce((acc, m) => {
@@ -172,7 +187,7 @@ useEffect(() => {
                 <h3>
                   Term {termIndex + 1 <= 8 ? termIndex + 1 : `Extra ${termIndex - 7}`}
                 </h3>
-                {Array.from({ length: 4 }).map((_, slotIndex) => (
+                {Array.from({ length: getSlotsForTerm(termIndex) }).map((_, slotIndex) => (
                   <CourseDropdown
                   key={slotIndex}
   courses={termCourses}

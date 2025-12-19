@@ -7,15 +7,18 @@ export default function ValidationAlerts({ selection }) {
   const [minors, setMinors] = useState([]);
   const [credits, setCredits] = useState({});
 
-async function check() {
-  // flatten { term1: [...], term2: [...] } into a single array
-  const flatSelection = Object.values(selection).flat();
-  const result = await validateSelection(flatSelection);
-  setAlerts(result.unmet || []);
-  setTracks(result.fulfilledTracks || []);
-  setMinors(result.fulfilledMinors || []);
-  setCredits(result.creditStatus || {});
-}
+  async function check() {
+    // send selection directly
+    const result = await validateSelection(selection);
+    setAlerts(result.unmet || []);
+    setTracks(result.fulfilledTracks || []);
+    setMinors(result.fulfilledMinors || []);
+    setCredits(result.creditStatus || {});
+  }
+
+
+
+
 
 
   return (
@@ -50,6 +53,8 @@ async function check() {
             <li>HASS: {credits.hassCredits} / 60 </li>
             <li>Electives: {credits.electiveCredits} / 96 </li>
             <li>ISTD Core: {credits.coreCredits} / 60 </li>
+            <li>All Electives: {credits.allElectiveCredits} / 96 </li>
+
           </ul>
         </>
       )}
