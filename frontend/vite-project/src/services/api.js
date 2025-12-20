@@ -3,7 +3,6 @@
 // Use environment variable for backend URL, fallback to localhost
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
-
 // --- Courses ---
 export async function getCourses() {
   const res = await fetch(`${API_BASE}/courses`);
@@ -50,6 +49,24 @@ export async function getProgress() {
   return res.json();
 }
 
+// --- Plans: load ---
+export async function loadPlan(studentId) {
+  const res = await fetch(`${API_BASE}/load-plan/${studentId}`);
+  if (!res.ok) throw new Error(`Failed to load plan: ${res.status}`);
+  return res.json();
+}
+
+// --- Plans: save ---
+export async function savePlan(studentId, selection, results) {
+  const res = await fetch(`${API_BASE}/save-plan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ studentId, selection, results }),
+  });
+  if (!res.ok) throw new Error(`Failed to save plan: ${res.status}`);
+  return res.json();
+}
+
 // --- Local test helper ---
 async function testValidateSelection() {
   const res = await fetch(`${API_BASE}/validate-selection`, {
@@ -67,4 +84,4 @@ async function testValidateSelection() {
 }
 
 // Uncomment to run locally
-// testValidateSelection();
+//testValidateSelection();
