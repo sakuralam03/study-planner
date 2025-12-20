@@ -8,10 +8,11 @@ let db;
 
 async function connectDB() {
   if (!client) {
-    client = new MongoClient(uri); // no extra options needed
+    console.log("Connecting with URI:", uri);
+    client = new MongoClient(uri);
     await client.connect();
-    db = client.db(process.env.DB_NAME || "studyPlanner");
-    console.log("✅ Connected to MongoDB");
+    db = client.db(process.env.DB_NAME || "studyPlanner"); // uses DB_NAME from env
+    console.log("✅ Connected to MongoDB:", db.databaseName);
   }
   return db;
 }
