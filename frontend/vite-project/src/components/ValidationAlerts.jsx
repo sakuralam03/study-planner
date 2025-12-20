@@ -51,7 +51,7 @@ export default function ValidationAlerts({ selection }) {
           <h3>Credit Requirements</h3>
           <ul>
             <li>HASS: {credits.hassCredits} / 60 </li>
-            <li>Electives: {credits.electiveCredits} / 96 </li>
+            <li>ISTD Electives: {credits.electiveCredits} / 60 </li>
             <li>ISTD Core: {credits.coreCredits} / 60 </li>
             <li>All Electives: {credits.allElectiveCredits} / 96 </li>
 
