@@ -14,7 +14,7 @@ app.use(cors({
     "http://localhost:5173",              // local dev
     "https://study-planner-3lqc.vercel.app"    // deployed frontend
   ],
-  methods: ["GET", "POST"],
+  methods: ["GET", "POST" , "OPTIONS"],
    allowedHeaders: ["Content-Type"]
 }));
 
@@ -203,19 +203,29 @@ app.post("/download-excel", async (req, res) => {
 });
 
 app.post("/save-plan", async (req, res) => {
-  const { studentId, selection, results } = req.body;
-  const db = await connectDB();
-  await db.collection("plans").insertOne({ studentId, selection, results, savedAt: new Date() });
-  res.json({ success: true });
+  try {
+    const { studentId, selection, results } = req.body;
+    const db = await connectDB();
+    await db.collection("plans").insertOne({ studentId, selection, results, savedAt: new Date() });
+    res.json({ success: true });   // <-- must send JSON
+  } catch (err) {
+    console.error("Error saving plan:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.get("/load-plan/:studentId", async (req, res) => {
-  const db = await connectDB();
-  const plans = await db.collection("plans")
-    .find({ studentId: req.params.studentId })
-    .sort({ savedAt: -1 })
-    .toArray();
-  res.json({ plans });
+  try {
+    const db = await connectDB();
+    const plans = await db.collection("plans")
+      .find({ studentId: req.params.studentId })
+      .sort({ savedAt: -1 })
+      .toArray();
+    res.json({ plans });
+  } catch (err) {
+    console.error("Error loading plan:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 
