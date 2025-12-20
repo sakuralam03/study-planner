@@ -167,6 +167,9 @@ app.get("/progress", async (req, res) => {
   }
 });
 
+app.get("/ping", (req, res) => {
+  res.send("✅ Backend is alive");
+});
 
 
 app.post("/download-excel", async (req, res) => {
