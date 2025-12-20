@@ -145,7 +145,7 @@ export default function App() {
       <section>
         <h2>Term Planner</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
-          {Array.from({ length: 11 }).map((_, termIndex) => {
+          {Array.from({ length: 14 }).map((_, termIndex) => {
             const termCourses = courses.filter(
               (c) => String(c.term_offered) === String(termIndex + 1)
             );
