@@ -204,6 +204,7 @@ app.post("/download-excel", async (req, res) => {
 
 app.post("/save-plan", async (req, res) => {
   try {
+       console.log("Incoming save-plan:", req.body);
     const { studentId, selection, results } = req.body;
     const db = await connectDB();
     await db.collection("plans").insertOne({ studentId, selection, results, savedAt: new Date() });
