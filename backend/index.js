@@ -15,6 +15,7 @@ app.use(cors({
     "https://study-planner-3lqc.vercel.app"    // deployed frontend
   ],
   methods: ["GET", "POST"],
+   allowedHeaders: ["Content-Type"]
 }));
 
 app.use(express.json());
