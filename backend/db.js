@@ -1,3 +1,6 @@
+// db.js
+const { MongoClient } = require("mongodb");
+
 const uri = process.env.MONGO_URI;
 let client;
 let db;
@@ -11,3 +14,5 @@ async function connectDB() {
   }
   return db;
 }
+
+module.exports = connectDB;
