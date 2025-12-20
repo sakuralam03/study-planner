@@ -499,7 +499,14 @@ res.json({ unmet, validSelected, fulfilledTracks, fulfilledMinors, creditStatus 
 });
 
 // --- Start server ---
-const PORT = process.env.PORT || 3000;  // use 4000 instead of 3000
-app.listen(PORT, () => {
-  console.log(`Backend running on http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+
+// Only start the server if not running on Vercel
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Backend running locally at http://localhost:${PORT}`);
+  });
+}
+
+// Export for Vercel
+module.exports = app;
