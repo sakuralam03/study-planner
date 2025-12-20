@@ -12,7 +12,7 @@ const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
 app.use(cors({
   origin: [
     "http://localhost:5173",              // local dev
-    "https://study-planner-3lqc.vercel.app/"    // deployed frontend
+    "https://study-planner-3lqc.vercel.app"    // deployed frontend
   ],
   methods: ["GET", "POST"],
 }));
