@@ -20,6 +20,10 @@ app.use(cors({
 app.use(express.json());
 
 let cache = {};
+app.get("/ping", (req, res) => {
+  res.send("✅ Backend is alive");
+});
+
 
 // ---------- Helpers ----------
 async function getSheetData(range) {
@@ -167,9 +171,7 @@ app.get("/progress", async (req, res) => {
   }
 });
 
-app.get("/ping", (req, res) => {
-  res.send("✅ Backend is alive");
-});
+
 
 
 app.post("/download-excel", async (req, res) => {
@@ -503,13 +505,13 @@ res.json({ unmet, validSelected, fulfilledTracks, fulfilledMinors, creditStatus 
 
 // --- Start server ---
 const PORT = process.env.PORT || 3000;
-
-// Only start the server if not running on Vercel
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Backend running locally at http://localhost:${PORT}`);
   });
 }
 
-// Export for Vercel
-module.exports = app;
+// --- Export for Vercel ---
+module.exports = (req, res) => {
+  app(req, res);
+};
