@@ -466,16 +466,15 @@ const allGroupsMet = groups.every(group => {
 
 
 
-    // --- 4. Credits ---
+  
 // --- 4. Credits ---
 let hassCredits = 0;
 let electiveCredits = 0;       // ISTD electives only
 let allElectiveCredits = 0;    // all electives across pillars
 let coreCredits = 0;
 
-const uniqueSelected = [...new Set(validSelected)];
-
-uniqueSelected.forEach(code => {
+// iterate over validSelected directly (no Set)
+validSelected.forEach(code => {
   const course = courses.find(c => c.course_code === code);
   if (!course) return;
 
@@ -507,6 +506,7 @@ const creditStatus = {
 };
 
 res.json({ unmet, validSelected, fulfilledTracks, fulfilledMinors, creditStatus });
+
 
 
   } catch (err) {

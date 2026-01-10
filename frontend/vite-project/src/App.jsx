@@ -142,33 +142,30 @@ export default function App() {
 
       <Plans studentId={user.studentId} plans={plans.slice(0, 1)} />
 
-      <section>
-        <h2>Term Planner</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
-          {Array.from({ length: 14 }).map((_, termIndex) => {
-            const termCourses = courses.filter(
-              (c) => String(c.term_offered) === String(termIndex + 1)
-            );
-            return (
-              <div key={termIndex} style={{ border: "1px solid #ccc", padding: "10px" }}>
-                <h3>
-                  Term {termIndex + 1 <= 8 ? termIndex + 1 : `Extra ${termIndex - 7}`}
-                </h3>
-                {Array.from({ length: getSlotsForTerm(termIndex) }).map((_, slotIndex) => (
-                  <CourseDropdown
-                    key={slotIndex}
-                    courses={termCourses}
-                    value={selection[termIndex + 1]?.[slotIndex] || ""}
-                    onSelect={(courseCode) =>
-                      handleCourseSelect(termIndex + 1, slotIndex, courseCode)
-                    }
-                  />
-                ))}
-              </div>
-            );
-          })}
+   <section>
+  <h2>Term Planner</h2>
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
+    {Array.from({ length: 14 }).map((_, termIndex) => {
+      const termCourses = courses; // all courses, not filtered
+      return (
+        <div key={termIndex} style={{ border: "1px solid #ccc", padding: "10px" }}>
+          <h3>Term {termIndex + 1}</h3>
+          {Array.from({ length: getSlotsForTerm(termIndex) }).map((_, slotIndex) => (
+            <CourseDropdown
+              key={slotIndex}
+              courses={termCourses}
+              value={selection[termIndex + 1]?.[slotIndex] || ""}
+              onSelect={(courseCode) =>
+                handleCourseSelect(termIndex + 1, slotIndex, courseCode)
+              }
+            />
+          ))}
         </div>
-      </section>
+      );
+    })}
+  </div>
+</section>
+
 
       <section>
         <h2>Validation Alerts</h2>
