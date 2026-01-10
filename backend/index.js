@@ -90,7 +90,6 @@ app.get("/courses", async (req, res) => {
       course_name: (r["course_name"] ?? "").trim(), // keep readable
       credits: parseInt((r["credits"] ?? "").toString().trim(), 10) || 0,
       type: normalize(r["type"]),
-      term_offered: (r["term_offered"] ?? "").toString().trim(),
       pillar: normalize(r["pillar"]),
       track_tags: (r["track_tags"] ?? "").toString().trim(),
       minor_tags: (r["minor_tags"] ?? "").toString().trim()
