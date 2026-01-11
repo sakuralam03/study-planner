@@ -4,6 +4,7 @@ const cors = require("cors");
 const { readSheet } = require("./sheets");
 const ExcelJS = require("exceljs");
 const connectDB = require("./db");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
@@ -227,6 +228,124 @@ app.get("/load-plan/:studentId", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+const bcrypt = require("bcrypt");
+
+app.post("/register", async (req, res) => {
+  try {
+    const { studentId, name, year, password, email } = req.body;
+    const db = await connectDB();
+
+    // Check if user exists
+    const existing = await db.collection("users").findOne({ $or: [{ studentId }, { email }] });
+    if (existing) {
+      return res.status(400).json({ error: "Account already exists" });
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await db.collection("users").insertOne({
+      studentId,
+      name,
+      year,
+      email,
+      passwordHash,
+      createdAt: new Date()
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/login", async (req, res) => {
+  const { studentId, password } = req.body;
+  const db = await connectDB();
+
+  const user = await db.collection("users").findOne({ studentId });
+  if (!user) return res.status(401).json({ error: "User not found" });
+
+  const match = await bcrypt.compare(password, user.passwordHash);
+  if (!match) return res.status(401).json({ error: "Invalid password" });
+
+  // Issue JWT or session
+  const token = jwt.sign({ studentId: user.studentId }, process.env.JWT_SECRET, { expiresIn: "1h" });
+  res.json({ success: true, token });
+});
+const crypto = require("crypto");
+
+app.post("/request-password-reset", async (req, res) => {
+  const { email } = req.body;
+  const db = await connectDB();
+
+  const user = await db.collection("users").findOne({ email });
+  if (!user) return res.status(404).json({ error: "Email not found" });
+
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const expiry = Date.now() + 3600000; // 1 hour
+
+  await db.collection("users").updateOne(
+    { email },
+    { $set: { resetToken, resetTokenExpiry: expiry } }
+  );
+
+  // Send email (using nodemailer, SendGrid, etc.)
+  await sendEmail(email, `Reset your password: https://study-planner-3lqc.vercel.app/reset-password?token=${resetToken}`);
+
+  res.json({ success: true });
+});
+const sendEmail = require("./mailer");
+
+app.post("/request-password-reset", async (req, res) => {
+  const { email } = req.body;
+  const db = await connectDB();
+
+  const user = await db.collection("users").findOne({ email });
+  if (!user) return res.status(404).json({ error: "Email not found" });
+
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const expiry = Date.now() + 3600000; // 1 hour
+
+  await db.collection("users").updateOne(
+    { email },
+    { $set: { resetToken, resetTokenExpiry: expiry } }
+  );
+
+  const resetLink = `https://study-planner-3lqc.vercel.app/reset-password?token=${resetToken}`;
+
+  await sendEmail(email, "Password Reset", `Click here to reset your password: ${resetLink}`);
+
+  res.json({ success: true });
+});
+
+app.post("/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body;
+  const db = await connectDB();
+
+  const user = await db.collection("users").findOne({
+    resetToken: token,
+    resetTokenExpiry: { $gt: Date.now() }
+  });
+
+  if (!user) return res.status(400).json({ error: "Invalid or expired token" });
+
+  const newHash = await bcrypt.hash(newPassword, 10);
+
+  await db.collection("users").updateOne(
+    { _id: user._id },
+    { $set: { passwordHash: newHash }, $unset: { resetToken: "", resetTokenExpiry: "" } }
+  );
+
+  res.json({ success: true });
+});
+function validateRegistration({ email, password }) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) throw new Error("Invalid email format");
+  if (password.length < 8) throw new Error("Password must be at least 8 characters");
+}
 
 
 
