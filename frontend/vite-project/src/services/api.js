@@ -60,7 +60,9 @@ export async function loadPlan(studentId) {
 export async function savePlan(studentId, selection, results) {
   const res = await fetch(`${API_BASE}/save-plan`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" ,
+       "Authorization": `Bearer ${token}`, // <-- attach token
+    },
     body: JSON.stringify({ studentId, selection, results }),
   });
   if (!res.ok) throw new Error(`Failed to save plan: ${res.status}`);
@@ -85,3 +87,4 @@ async function testValidateSelection() {
 
 // Uncomment to run locally
 //testValidateSelection();
+

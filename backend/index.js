@@ -4,6 +4,10 @@ const cors = require("cors");
 const { readSheet } = require("./sheets");
 const ExcelJS = require("exceljs");
 const connectDB = require("./db");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const sendEmail = require("./mailer"); // your Nodemailer/SendGrid utility
 
 const app = express();
 const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
@@ -73,8 +77,11 @@ function toCodes(listStr) {
     .filter(Boolean); // drop empty results
 }
 
-
-
+function validateRegistration({ email, password }) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) throw new Error("Invalid email format");
+  if (password.length < 8) throw new Error("Password must be at least 8 characters");
+}
 
 // ---------- Endpoints ----------
 app.get("/courses", async (req, res) => {
@@ -90,7 +97,6 @@ app.get("/courses", async (req, res) => {
       course_name: (r["course_name"] ?? "").trim(), // keep readable
       credits: parseInt((r["credits"] ?? "").toString().trim(), 10) || 0,
       type: normalize(r["type"]),
-      term_offered: (r["term_offered"] ?? "").toString().trim(),
       pillar: normalize(r["pillar"]),
       track_tags: (r["track_tags"] ?? "").toString().trim(),
       minor_tags: (r["minor_tags"] ?? "").toString().trim()
@@ -226,6 +232,123 @@ app.get("/load-plan/:studentId", async (req, res) => {
   } catch (err) {
     console.error("Error loading plan:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.post("/register", async (req, res) => {
+  try {
+    const { studentId, name, year, password, email } = req.body;
+    const db = await connectDB();
+
+    // Validate inputs
+    validateRegistration({ email, password });
+
+    // Check if user exists
+    const existing = await db.collection("users").findOne({ $or: [{ studentId }, { email }] });
+    if (existing) {
+      return res.status(400).json({ error: "Account already exists" });
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await db.collection("users").insertOne({
+      studentId,
+      name,
+      year,
+      email,
+      passwordHash,
+      createdAt: new Date()
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Login
+app.post("/login", async (req, res) => {
+  try {
+    const { studentId, password } = req.body;
+    const db = await connectDB();
+
+    const user = await db.collection("users").findOne({ studentId });
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) return res.status(401).json({ error: "Invalid password or username" });
+
+    // Issue JWT
+    const token = jwt.sign(
+      { studentId: user.studentId },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.json({ success: true, token });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Request password reset
+app.post("/request-password-reset", async (req, res) => {
+  try {
+    const { email } = req.body;
+    const db = await connectDB();
+
+    const user = await db.collection("users").findOne({ email });
+    if (!user) return res.status(404).json({ error: "Email not found" });
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expiry = Date.now() + 3600000; // 1 hour
+
+    await db.collection("users").updateOne(
+      { email },
+      { $set: { resetToken, resetTokenExpiry: expiry } }
+    );
+
+  const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+const resetLink = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+    await sendEmail(email, "Password Reset", `Click here to reset your password: ${resetLink}`);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Request reset error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reset password
+app.post("/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    const db = await connectDB();
+
+    const user = await db.collection("users").findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: Date.now() }
+    });
+
+    if (!user) return res.status(400).json({ error: "Invalid or expired token" });
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+
+    await db.collection("users").updateOne(
+      { _id: user._id },
+      { $set: { passwordHash: newHash }, $unset: { resetToken: "", resetTokenExpiry: "" } }
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -466,16 +589,15 @@ const allGroupsMet = groups.every(group => {
 
 
 
-    // --- 4. Credits ---
+  
 // --- 4. Credits ---
 let hassCredits = 0;
 let electiveCredits = 0;       // ISTD electives only
 let allElectiveCredits = 0;    // all electives across pillars
 let coreCredits = 0;
 
-const uniqueSelected = [...new Set(validSelected)];
-
-uniqueSelected.forEach(code => {
+// iterate over validSelected directly (no Set)
+validSelected.forEach(code => {
   const course = courses.find(c => c.course_code === code);
   if (!course) return;
 
@@ -507,6 +629,7 @@ const creditStatus = {
 };
 
 res.json({ unmet, validSelected, fulfilledTracks, fulfilledMinors, creditStatus });
+
 
 
   } catch (err) {
