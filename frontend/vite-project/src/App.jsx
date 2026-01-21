@@ -36,6 +36,7 @@ export default function App() {
   const [selectedTrack, setSelectedTrack] = useState("");
   const [selectedMinor, setSelectedMinor] = useState("");
   const [plans, setPlans] = useState([]);
+    const [numTerms, setNumTerms] = useState(14); // default to 14 terms
 
   // Persist login
   useEffect(() => {
