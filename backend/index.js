@@ -122,7 +122,10 @@ app.get("/prerequisites", async (req, res) => {
 app.get("/tracks", async (req, res) => {
   try {
     const raw = await getSheetData("Tracks!A:G");
+    console.log("Raw Tracks data:", raw);
+
     const rows = mapRowsWithHeaders(raw);
+    console.log("Mapped rows:", rows);
 
     const tracks = rows.map(r => ({
       id: r.id,
@@ -137,9 +140,11 @@ app.get("/tracks", async (req, res) => {
 
     res.json({ tracks });
   } catch (err) {
-    res.status(500).send(err.message);
+    console.error("Error in /tracks:", err);
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 app.get("/minors", async (req, res) => {
   try {
