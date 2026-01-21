@@ -26,22 +26,18 @@ const TermCard = memo(function TermCard({
   courses,
   selection,
   handleCourseSelect,
-  termHeaders,
-  setTermHeaders,
 }) {
+  // ✅ Local header state per card
+  const [header, setHeader] = useState(`Term ${termIndex + 1}`);
+
   return (
     <div style={{ border: "1px solid #ccc", padding: "10px" }}>
-      <h3>{termHeaders[termIndex + 1] || `Term ${termIndex + 1}`}</h3>
+      <h3>{header}</h3>
       <input
         type="text"
         placeholder={`Custom header for Term ${termIndex + 1}`}
-        value={termHeaders[termIndex + 1] || ""}
-        onChange={(e) =>
-          setTermHeaders((prev) => ({
-            ...prev,
-            [termIndex + 1]: e.target.value,
-          }))
-        }
+        value={header}
+        onChange={(e) => setHeader(e.target.value)}
       />
       {Array.from({ length: 4 }).map((_, slotIndex) => (
         <CourseDropdown
@@ -76,7 +72,6 @@ export default function App() {
 
   // ✅ Default to 8 terms
   const [numTerms, setNumTerms] = useState(8);
-  const [termHeaders, setTermHeaders] = useState({});
 
   // Persist login
   useEffect(() => {
@@ -131,11 +126,13 @@ export default function App() {
     loadPlans();
   }, [user]);
 
+  // ✅ Efficient selection updates
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection((prev) => {
       const updated = { ...prev };
-      if (!updated[termIndex]) updated[termIndex] = [];
-      updated[termIndex][slotIndex] = courseCode;
+      const term = [...(updated[termIndex] || [])];
+      term[slotIndex] = courseCode;
+      updated[termIndex] = term;
       return updated;
     });
   };
@@ -209,8 +206,6 @@ export default function App() {
                 courses={courses}
                 selection={selection}
                 handleCourseSelect={handleCourseSelect}
-                termHeaders={termHeaders}
-                setTermHeaders={setTermHeaders}
               />
             ))}
           </div>
