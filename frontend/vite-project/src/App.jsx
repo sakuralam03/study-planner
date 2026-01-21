@@ -115,10 +115,8 @@ export default function App() {
   }
 
   function getSlotsForTerm(termIndex) {
-    const termNumber = termIndex + 1;
-    if (termNumber <= 4) return 4; // Freshmore
-    if (termNumber <= 8) return 5; // Pillar years
-    return 3; // Extra terms
+
+    return 4; // Default to 4 slots per term
   }
 
   const groupedMinors = minors.reduce((acc, m) => {
@@ -138,7 +136,7 @@ export default function App() {
 
         <button
           onClick={() => {
-            setUser(null);
+            setUser(null);c
             setAgreed(false);
           }}
           style={{ marginBottom: "20px" }}
@@ -148,37 +146,58 @@ export default function App() {
 
         <Plans studentId={user.studentId} plans={plans.slice(0, 1)} />
 
-        <section>
-          <h2>Term Planner</h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "20px",
-            }}
-          >
-            {Array.from({ length: 14 }).map((_, termIndex) => (
-              <div
-                key={termIndex}
-                style={{ border: "1px solid #ccc", padding: "10px" }}
-              >
-                <h3>Term {termIndex + 1}</h3>
-                {Array.from({ length: getSlotsForTerm(termIndex) }).map(
-                  (_, slotIndex) => (
-                    <CourseDropdown
-                      key={slotIndex}
-                      courses={courses}
-                      value={selection[termIndex + 1]?.[slotIndex] || ""}
-                      onSelect={(courseCode) =>
-                        handleCourseSelect(termIndex + 1, slotIndex, courseCode)
-                      }
-                    />
-                  )
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+      <section>
+  <h2>Term Planner</h2>
+  <div style={{ marginBottom: "20px" }}>
+    <label>
+      Number of terms:{" "}
+      <input
+        type="number"
+        min="1"
+        max="20"
+        value={numTerms}
+        onChange={(e) => setNumTerms(parseInt(e.target.value, 10))}
+      />
+    </label>
+  </div>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(3, 1fr)",
+      gap: "20px",
+    }}
+  >
+    {Array.from({ length: numTerms }).map((_, termIndex) => (
+      <div key={termIndex} style={{ border: "1px solid #ccc", padding: "10px" }}>
+        <h3>Term {termIndex + 1}</h3>
+        <input
+          type="text"
+          placeholder={`Custom label for Term ${termIndex + 1}`}
+          value={selection[termIndex + 1]?.label || ""}
+          onChange={(e) => {
+            setSelection((prev) => {
+              const updated = { ...prev };
+              if (!updated[termIndex + 1]) updated[termIndex + 1] = [];
+              updated[termIndex + 1].label = e.target.value;
+              return updated;
+            });
+          }}
+        />
+        {Array.from({ length: getSlotsForTerm(termIndex) }).map((_, slotIndex) => (
+          <CourseDropdown
+            key={slotIndex}
+            courses={courses}
+            value={selection[termIndex + 1]?.[slotIndex] || ""}
+            onSelect={(courseCode) =>
+              handleCourseSelect(termIndex + 1, slotIndex, courseCode)
+            }
+          />
+        ))}
+      </div>
+    ))}
+  </div>
+</section>
+
 
         <section>
           <h2>Validation Alerts</h2>
