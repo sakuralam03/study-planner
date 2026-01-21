@@ -1,5 +1,5 @@
 // App.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import LoginPage from "./components/LoginPage.jsx";
@@ -20,6 +20,43 @@ import {
   savePlan,
 } from "./services/api";
 
+// --- TermCard component ---
+const TermCard = memo(function TermCard({
+  termIndex,
+  courses,
+  selection,
+  handleCourseSelect,
+  termHeaders,
+  setTermHeaders,
+}) {
+  return (
+    <div style={{ border: "1px solid #ccc", padding: "10px" }}>
+      <h3>{termHeaders[termIndex + 1] || `Term ${termIndex + 1}`}</h3>
+      <input
+        type="text"
+        placeholder={`Custom header for Term ${termIndex + 1}`}
+        value={termHeaders[termIndex + 1] || ""}
+        onChange={(e) =>
+          setTermHeaders((prev) => ({
+            ...prev,
+            [termIndex + 1]: e.target.value,
+          }))
+        }
+      />
+      {Array.from({ length: 4 }).map((_, slotIndex) => (
+        <CourseDropdown
+          key={slotIndex}
+          courses={courses}
+          value={selection[termIndex + 1]?.[slotIndex] || ""}
+          onSelect={(courseCode) =>
+            handleCourseSelect(termIndex + 1, slotIndex, courseCode)
+          }
+        />
+      ))}
+    </div>
+  );
+});
+
 export default function App() {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("user");
@@ -37,9 +74,9 @@ export default function App() {
   const [selectedMinor, setSelectedMinor] = useState("");
   const [plans, setPlans] = useState([]);
 
-  // NEW: number of terms and custom headers
-  const [numTerms, setNumTerms] = useState(14); // default to 14 terms
-  const [termHeaders, setTermHeaders] = useState({}); // custom labels per term
+  // ✅ Default to 8 terms
+  const [numTerms, setNumTerms] = useState(8);
+  const [termHeaders, setTermHeaders] = useState({});
 
   // Persist login
   useEffect(() => {
@@ -118,17 +155,12 @@ export default function App() {
     }
   }
 
-  function getSlotsForTerm() {
-    return 4; // Always 4 slots per term
-  }
-
   const groupedMinors = minors.reduce((acc, m) => {
     if (!acc[m.minor_name]) acc[m.minor_name] = [];
     acc[m.minor_name].push(m);
     return acc;
   }, {});
 
-  // Planner UI extracted into its own function
   function PlannerUI() {
     if (!user) return <LoginPage onLogin={setUser} />;
     if (!agreed) return <TermsModal onAgree={() => setAgreed(true)} />;
@@ -171,35 +203,15 @@ export default function App() {
             }}
           >
             {Array.from({ length: numTerms }).map((_, termIndex) => (
-              <div
-                key={termIndex}
-                style={{ border: "1px solid #ccc", padding: "10px" }}
-              >
-                <h3>{termHeaders[termIndex + 1] || `Term ${termIndex + 1}`}</h3>
-                <input
-                  type="text"
-                  placeholder={`Custom header for Term ${termIndex + 1}`}
-                  value={termHeaders[termIndex + 1] || ""}
-                  onChange={(e) =>
-                    setTermHeaders((prev) => ({
-                      ...prev,
-                      [termIndex + 1]: e.target.value,
-                    }))
-                  }
-                />
-                {Array.from({ length: getSlotsForTerm(termIndex) }).map(
-                  (_, slotIndex) => (
-                    <CourseDropdown
-                      key={slotIndex}
-                      courses={courses}
-                      value={selection[termIndex + 1]?.[slotIndex] || ""}
-                      onSelect={(courseCode) =>
-                        handleCourseSelect(termIndex + 1, slotIndex, courseCode)
-                      }
-                    />
-                  )
-                )}
-              </div>
+              <TermCard
+                key={`term-${termIndex}`}
+                termIndex={termIndex}
+                courses={courses}
+                selection={selection}
+                handleCourseSelect={handleCourseSelect}
+                termHeaders={termHeaders}
+                setTermHeaders={setTermHeaders}
+              />
             ))}
           </div>
         </section>
@@ -228,7 +240,6 @@ export default function App() {
     );
   }
 
-  // Router setup
   return (
     <BrowserRouter>
       <Routes>
