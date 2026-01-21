@@ -15,11 +15,11 @@ const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
 // Enable CORS for both local dev and deployed frontend
 app.use(cors({
   origin: [
-    "http://localhost:5173",              // local dev
-    "https://study-planner-3lqc.vercel.app"    // deployed frontend
+    "http://localhost:5173",                  // local dev
+    "https://study-planner-3lqc.vercel.app"   // deployed frontend
   ],
-  methods: ["GET", "POST" , "OPTIONS"],
-   allowedHeaders: ["Content-Type"]
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 app.use(express.json());
