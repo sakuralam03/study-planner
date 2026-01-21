@@ -36,7 +36,10 @@ export default function App() {
   const [selectedTrack, setSelectedTrack] = useState("");
   const [selectedMinor, setSelectedMinor] = useState("");
   const [plans, setPlans] = useState([]);
-    const [numTerms, setNumTerms] = useState(14); // default to 14 terms
+
+  // NEW: number of terms and custom headers
+  const [numTerms, setNumTerms] = useState(14); // default to 14 terms
+  const [termHeaders, setTermHeaders] = useState({}); // custom labels per term
 
   // Persist login
   useEffect(() => {
@@ -115,9 +118,8 @@ export default function App() {
     }
   }
 
-  function getSlotsForTerm(termIndex) {
-
-    return 4; // Default to 4 slots per term
+  function getSlotsForTerm() {
+    return 4; // Always 4 slots per term
   }
 
   const groupedMinors = minors.reduce((acc, m) => {
@@ -137,7 +139,7 @@ export default function App() {
 
         <button
           onClick={() => {
-            setUser(null);c
+            setUser(null);
             setAgreed(false);
           }}
           style={{ marginBottom: "20px" }}
@@ -147,58 +149,60 @@ export default function App() {
 
         <Plans studentId={user.studentId} plans={plans.slice(0, 1)} />
 
-      <section>
-  <h2>Term Planner</h2>
-  <div style={{ marginBottom: "20px" }}>
-    <label>
-      Number of terms:{" "}
-      <input
-        type="number"
-        min="1"
-        max="20"
-        value={numTerms}
-        onChange={(e) => setNumTerms(parseInt(e.target.value, 10))}
-      />
-    </label>
-  </div>
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(3, 1fr)",
-      gap: "20px",
-    }}
-  >
-    {Array.from({ length: numTerms }).map((_, termIndex) => (
-      <div key={termIndex} style={{ border: "1px solid #ccc", padding: "10px" }}>
-        <h3>Term {termIndex + 1}</h3>
-        <input
-          type="text"
-          placeholder={`Custom label for Term ${termIndex + 1}`}
-          value={selection[termIndex + 1]?.label || ""}
-          onChange={(e) => {
-            setSelection((prev) => {
-              const updated = { ...prev };
-              if (!updated[termIndex + 1]) updated[termIndex + 1] = [];
-              updated[termIndex + 1].label = e.target.value;
-              return updated;
-            });
-          }}
-        />
-        {Array.from({ length: getSlotsForTerm(termIndex) }).map((_, slotIndex) => (
-          <CourseDropdown
-            key={slotIndex}
-            courses={courses}
-            value={selection[termIndex + 1]?.[slotIndex] || ""}
-            onSelect={(courseCode) =>
-              handleCourseSelect(termIndex + 1, slotIndex, courseCode)
-            }
-          />
-        ))}
-      </div>
-    ))}
-  </div>
-</section>
-
+        <section>
+          <h2>Term Planner</h2>
+          <div style={{ marginBottom: "20px" }}>
+            <label>
+              Number of terms:{" "}
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={numTerms}
+                onChange={(e) => setNumTerms(parseInt(e.target.value, 10))}
+              />
+            </label>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: "20px",
+            }}
+          >
+            {Array.from({ length: numTerms }).map((_, termIndex) => (
+              <div
+                key={termIndex}
+                style={{ border: "1px solid #ccc", padding: "10px" }}
+              >
+                <h3>{termHeaders[termIndex + 1] || `Term ${termIndex + 1}`}</h3>
+                <input
+                  type="text"
+                  placeholder={`Custom header for Term ${termIndex + 1}`}
+                  value={termHeaders[termIndex + 1] || ""}
+                  onChange={(e) =>
+                    setTermHeaders((prev) => ({
+                      ...prev,
+                      [termIndex + 1]: e.target.value,
+                    }))
+                  }
+                />
+                {Array.from({ length: getSlotsForTerm(termIndex) }).map(
+                  (_, slotIndex) => (
+                    <CourseDropdown
+                      key={slotIndex}
+                      courses={courses}
+                      value={selection[termIndex + 1]?.[slotIndex] || ""}
+                      onSelect={(courseCode) =>
+                        handleCourseSelect(termIndex + 1, slotIndex, courseCode)
+                      }
+                    />
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section>
           <h2>Validation Alerts</h2>
