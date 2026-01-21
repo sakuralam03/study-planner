@@ -122,6 +122,9 @@ app.get("/prerequisites", async (req, res) => {
 app.get("/tracks", async (req, res) => {
   try {
     const raw = await getSheetData("Tracks!A:G");
+    if (!raw || raw.length === 0) {
+      throw new Error("No data returned from Tracks sheet");
+    }
     console.log("Raw Tracks data:", raw);
 
     const rows = mapRowsWithHeaders(raw);
@@ -144,6 +147,7 @@ app.get("/tracks", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 app.get("/minors", async (req, res) => {
