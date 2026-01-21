@@ -58,16 +58,20 @@ export async function loadPlan(studentId) {
 
 // --- Plans: save ---
 export async function savePlan(studentId, selection, results) {
+  const token = localStorage.getItem("token"); // ✅ fetch token here
+
   const res = await fetch(`${API_BASE}/save-plan`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" ,
-       "Authorization": `Bearer ${token}`, // <-- attach token
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
     },
     body: JSON.stringify({ studentId, selection, results }),
   });
   if (!res.ok) throw new Error(`Failed to save plan: ${res.status}`);
   return res.json();
 }
+
 
 // --- Local test helper ---
 async function testValidateSelection() {
