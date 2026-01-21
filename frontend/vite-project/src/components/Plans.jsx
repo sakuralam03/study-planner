@@ -11,23 +11,25 @@ function Plans({ studentId, plans }) {
               <strong>Saved At:</strong> {new Date(plan.savedAt).toLocaleString()} <br />
               <strong>Selection:</strong>
               <ul>
-                {Object.entries(plan.selection).map(([term, data]) => (
+                {Object.entries(plan.selection).map(([term, courses]) => (
                   <li key={term}>
-                    {data.header || `Term ${term}`}: {data.courses?.join(", ") || "No courses"}
+                    {term}: {courses.join(", ")}
                   </li>
                 ))}
               </ul>
-              <strong>Results:</strong>
-              {plan.results ? (
-                <div>
-                  <p><strong>Unmet:</strong> {plan.results.unmet?.join(", ") || "None"}</p>
-                  <p><strong>Fulfilled Tracks:</strong> {plan.results.fulfilledTracks?.join(", ") || "None"}</p>
-                  <p><strong>Fulfilled Minors:</strong> {plan.results.fulfilledMinors?.join(", ") || "None"}</p>
-                  <p><strong>Credit Status:</strong> {JSON.stringify(plan.results.creditStatus)}</p>
-                </div>
-              ) : (
-                "No results saved"
-              )}
+                <strong>Results:</strong>
+{plan.results ? (
+  <div>
+    <p><strong>Unmet:</strong> {plan.results.unmet?.join(", ") || "None"}</p>
+    <p><strong>Fulfilled Tracks:</strong> {plan.results.fulfilledTracks?.join(", ") || "None"}</p>
+    <p><strong>Fulfilled Minors:</strong> {plan.results.fulfilledMinors?.join(", ") || "None"}</p>
+    <p><strong>Credit Status:</strong> {JSON.stringify(plan.results.creditStatus)}</p>
+  </div>
+) : (
+  "No results saved"
+)}
+
+
             </li>
           ))}
         </ul>

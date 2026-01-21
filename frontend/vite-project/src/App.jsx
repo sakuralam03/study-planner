@@ -26,10 +26,9 @@ const TermCard = memo(function TermCard({
   courses,
   selection,
   handleCourseSelect,
-  handleHeaderChange,
 }) {
-  const header = selection[termIndex + 1]?.header || `Term ${termIndex + 1}`;
-  const coursesForTerm = selection[termIndex + 1]?.courses || [];
+  // ✅ Local header state per card
+  const [header, setHeader] = useState(`Term ${termIndex + 1}`);
 
   return (
     <div style={{ border: "1px solid #ccc", padding: "10px" }}>
@@ -38,13 +37,13 @@ const TermCard = memo(function TermCard({
         type="text"
         placeholder={`Custom header for Term ${termIndex + 1}`}
         value={header}
-        onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
+        onChange={(e) => setHeader(e.target.value)}
       />
       {Array.from({ length: 4 }).map((_, slotIndex) => (
         <CourseDropdown
           key={slotIndex}
           courses={courses}
-          value={coursesForTerm[slotIndex] || ""}
+          value={selection[termIndex + 1]?.[slotIndex] || ""}
           onSelect={(courseCode) =>
             handleCourseSelect(termIndex + 1, slotIndex, courseCode)
           }
@@ -131,19 +130,9 @@ export default function App() {
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection((prev) => {
       const updated = { ...prev };
-      const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-      const courses = [...term.courses];
-      courses[slotIndex] = courseCode;
-      updated[termIndex] = { ...term, courses };
-      return updated;
-    });
-  };
-
-  const handleHeaderChange = (termIndex, newHeader) => {
-    setSelection((prev) => {
-      const updated = { ...prev };
-      const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-      updated[termIndex] = { ...term, header: newHeader };
+      const term = [...(updated[termIndex] || [])];
+      term[slotIndex] = courseCode;
+      updated[termIndex] = term;
       return updated;
     });
   };
@@ -217,7 +206,6 @@ export default function App() {
                 courses={courses}
                 selection={selection}
                 handleCourseSelect={handleCourseSelect}
-                handleHeaderChange={handleHeaderChange}
               />
             ))}
           </div>
