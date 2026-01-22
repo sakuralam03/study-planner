@@ -28,8 +28,10 @@ const TermCard = memo(function TermCard({
   handleCourseSelect,
   handleHeaderChange,
 }) {
-  const header = selection[termIndex + 1]?.header || `Term ${termIndex + 1}`;
-  const coursesForTerm = selection[termIndex + 1]?.courses || [];
+  const termData =
+    selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
+  const header = termData.header;
+  const coursesForTerm = termData.courses;
 
   return (
     <div style={{ border: "1px solid #ccc", padding: "10px" }}>
@@ -131,7 +133,10 @@ export default function App() {
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection((prev) => {
       const updated = { ...prev };
-      const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+      const term = updated[termIndex] || {
+        header: `Term ${termIndex}`,
+        courses: [],
+      };
       const courses = [...term.courses];
       courses[slotIndex] = courseCode;
       updated[termIndex] = { ...term, courses };
@@ -142,7 +147,10 @@ export default function App() {
   const handleHeaderChange = (termIndex, newHeader) => {
     setSelection((prev) => {
       const updated = { ...prev };
-      const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+      const term = updated[termIndex] || {
+        header: `Term ${termIndex}`,
+        courses: [],
+      };
       updated[termIndex] = { ...term, header: newHeader };
       return updated;
     });
