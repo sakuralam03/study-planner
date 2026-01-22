@@ -364,6 +364,14 @@ app.post("/reset-password", async (req, res) => {
 
 
 // --- Validate Selection ---
+// before iterating credits
+const validSelected = [];
+Object.values(selection).forEach(term => {
+  if (term.courses) {
+    validSelected.push(...term.courses.filter(Boolean));
+  }
+});
+
 app.post("/validate-selection", async (req, res) => {
   try {
     const selection = req.body.selection ?? [];
