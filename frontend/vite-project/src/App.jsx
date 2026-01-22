@@ -20,6 +20,17 @@ import {
   savePlan,
 } from "./services/api";
 
+function flattenSelection(selection) {
+  const allCodes = [];
+  Object.values(selection).forEach(term => {
+    if (term.courses) {
+      allCodes.push(...term.courses.filter(Boolean));
+    }
+  });
+  return allCodes;
+}
+
+
 // --- TermCard component ---
 const TermCard = memo(function TermCard({
   termIndex,
@@ -53,7 +64,6 @@ const TermCard = memo(function TermCard({
     </div>
   );
 });
-
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -106,7 +116,8 @@ export default function App() {
   useEffect(() => {
     async function autoValidate() {
       if (!selection || Object.keys(selection).length === 0) return;
-      const data = await validateSelection(selection);
+      const data = await validateSelection(flattenSelection(selection));
+
       setResults(data);
     }
     autoValidate();
@@ -151,7 +162,8 @@ const handleHeaderChange = (termIndex, newHeader) => {
 
   async function savePlanHandler() {
     try {
-      const validatedResults = await validateSelection(selection);
+      const validatedResults = await validateSelection(flattenSelection(selection));
+
       const data = await savePlan(user.studentId, selection, validatedResults);
       if (data.success) {
         const updated = await loadPlan(user.studentId);
