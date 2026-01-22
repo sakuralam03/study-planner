@@ -364,55 +364,49 @@ app.post("/reset-password", async (req, res) => {
 
 
 // --- Validate Selection ---
-// before iterating credits
-const validSelected = [];
-Object.values(selection).forEach(term => {
-  if (term.courses) {
-    validSelected.push(...term.courses.filter(Boolean));
-  }
-});
 
 app.post("/validate-selection", async (req, res) => {
   try {
     const selection = req.body.selection ?? [];
     const isTermStructured = !Array.isArray(selection);
 
-    // Build term-aware structures
-    let selectionByTerm = {};
+    // --- Flatten courses out of { header, courses } objects ---
     let allSelected = [];
+    let selectionByTerm = {};
 
     if (isTermStructured) {
       const orderedTerms = sortTermsNatural(Object.keys(selection));
       orderedTerms.forEach(t => {
-        selectionByTerm[t] = normalizeArray(selection[t] || []);
+        const term = selection[t];
+        if (Array.isArray(term)) {
+          // old shape: term is already an array
+          selectionByTerm[t] = normalizeArray(term);
+        } else if (term && term.courses) {
+          // new shape: term is { header, courses }
+          selectionByTerm[t] = normalizeArray(term.courses);
+        } else {
+          selectionByTerm[t] = [];
+        }
       });
       allSelected = Object.values(selectionByTerm).flat().map(normalize);
-
     } else {
-      // Flat array: treat as single "Term 0" for presence checks; timing cannot be enforced strictly
+      // Flat array: treat as single "Term 0"
       const normalized = normalizeArray(selection);
       selectionByTerm["Term 0"] = normalized;
       allSelected = normalized;
     }
 
-    // course -> term index map
-    
-// course -> term number map
-const termNames = Object.keys(selectionByTerm);
-const courseToTerm = {};
+    // --- course -> term number map ---
+    const courseToTerm = {};
+    Object.entries(selectionByTerm).forEach(([termName, codes]) => {
+      const match = termName.match(/(\d+)(?!.*\d)/);
+      const termNum = parseInt(match?.[0] || "0", 10);
+      codes.forEach(code => {
+        courseToTerm[normalize(code)] = termNum;
+      });
+    });
 
-termNames.forEach(termName => {
-  // extract the last number in the term string, e.g. "Term 4" → 4
-  const match = termName.match(/(\d+)(?!.*\d)/);
-  const termNum = parseInt(match?.[0] || "0", 10);
-
-  (selectionByTerm[termName] || []).forEach(code => {
-    courseToTerm[normalize(code)] = termNum;
-  });
-});
-
-
-    // Load sheets and sanitize
+    // --- Load sheets and sanitize ---
     const prereqsRaw = await getSheetData("Prerequisites!A:C");
     const tracksRaw = await getSheetData("Tracks!A:G");
     const minorsRaw = await getSheetData("Minors!A:E");
@@ -447,71 +441,64 @@ termNames.forEach(termName => {
       pillar: normalize(r["pillar"])
     }));
 
-    // Debug logs
-    console.log("Selected courses:", allSelected);
-    console.log("First few courses from sheet:", courses.slice(0, 5));
-    console.log("First few tracks:", tracks.slice(0, 3));
-    console.log("First few prereqs:", prereqsRaw.slice(0, 5));
+    // --- 1. Prerequisites ---
+    const unmet = [];
+    const prereqRows = prereqsRaw.slice(1);
 
-// --- 1. Prerequisites with term awareness ---
-const unmet = [];
-const prereqRows = prereqsRaw.slice(1);
+    prereqRows.forEach(([rawCourse, rawPrereq, rawType]) => {
+      const course = normalize(rawCourse);
+      const prereq = normalize(rawPrereq);
+      const type = (rawType ?? "").toString().trim();
 
-prereqRows.forEach(([rawCourse, rawPrereq, rawType]) => {
-  const course = normalize(rawCourse);
-  const prereq = normalize(rawPrereq);
-  const type = (rawType ?? "").toString().trim();
+      if (courseToTerm[course] !== undefined) {
+        const courseTerm = courseToTerm[course];
+        const prereqTerm = courseToTerm[prereq];
 
-  if (courseToTerm[course] !== undefined) {
-    const courseTerm = courseToTerm[course];
-    const prereqTerm = courseToTerm[prereq];
-
-    if (type === "Pre") {
-      if (isTermStructured) {
-        if (prereqTerm === undefined || prereqTerm >= courseTerm) {
-          unmet.push(`${course} requires ${prereq} before enrollment`);
+        if (type === "Pre") {
+          if (isTermStructured) {
+            if (prereqTerm === undefined || prereqTerm >= courseTerm) {
+              unmet.push(`${course} requires ${prereq} before enrollment`);
+            }
+          } else if (prereqTerm === undefined) {
+            unmet.push(`${course} requires ${prereq} before enrollment`);
+          }
         }
-      } else if (prereqTerm === undefined) {
-        unmet.push(`${course} requires ${prereq} before enrollment`);
-      }
-    }
 
-    if (type === "Co") {
-      if (isTermStructured) {
-        if (prereqTerm === undefined || prereqTerm > courseTerm) {
-          unmet.push(`${course} requires ${prereq} taken concurrently or in an earlier term`);
+        if (type === "Co") {
+          if (isTermStructured) {
+            if (prereqTerm === undefined || prereqTerm > courseTerm) {
+              unmet.push(`${course} requires ${prereq} taken concurrently or in an earlier term`);
+            }
+          } else if (prereqTerm === undefined) {
+            unmet.push(`${course} requires ${prereq} taken concurrently or earlier`);
+          }
         }
-      } else if (prereqTerm === undefined) {
-        unmet.push(`${course} requires ${prereq} taken concurrently or earlier`);
       }
-    }
-  }
-});
+    });
 
-// --- Helper: prerequisitesMet ---
-function prerequisitesMet(course) {
-  const prereqs = prereqRows.filter(r => normalize(r[0]) === course);
-  return prereqs.every(([rawCourse, rawPrereq, rawType]) => {
-    const prereq = normalize(rawPrereq);
-    const type = (rawType ?? "").toString().trim();
-    const courseTerm = courseToTerm[course];
-    const prereqTerm = courseToTerm[prereq];
+    function prerequisitesMet(course) {
+      const prereqs = prereqRows.filter(r => normalize(r[0]) === course);
+      return prereqs.every(([rawCourse, rawPrereq, rawType]) => {
+        const prereq = normalize(rawPrereq);
+        const type = (rawType ?? "").toString().trim();
+        const courseTerm = courseToTerm[course];
+        const prereqTerm = courseToTerm[prereq];
 
-    if (type === "Pre") {
-      return isTermStructured
-        ? prereqTerm !== undefined && prereqTerm < courseTerm
-        : prereqTerm !== undefined;
+        if (type === "Pre") {
+          return isTermStructured
+            ? prereqTerm !== undefined && prereqTerm < courseTerm
+            : prereqTerm !== undefined;
+        }
+        if (type === "Co") {
+          return isTermStructured
+            ? prereqTerm !== undefined && prereqTerm <= courseTerm
+            : prereqTerm !== undefined;
+        }
+        return true;
+      });
     }
-    if (type === "Co") {
-      return isTermStructured
-        ? prereqTerm !== undefined && prereqTerm <= courseTerm
-        : prereqTerm !== undefined;
-    }
-    return true;
-  });
-}
 
-const validSelected = allSelected.filter(c => prerequisitesMet(c));
+    const validSelected = allSelected.filter(c => prerequisitesMet(c));
 
 
 
@@ -607,48 +594,43 @@ const allGroupsMet = groups.every(group => {
 
 
   
-// --- 4. Credits ---
 let hassCredits = 0;
-let electiveCredits = 0;       // ISTD electives only
-let allElectiveCredits = 0;    // all electives across pillars
-let coreCredits = 0;
+    let electiveCredits = 0;
+    let allElectiveCredits = 0;
+    let coreCredits = 0;
 
-// iterate over validSelected directly (no Set)
-validSelected.forEach(code => {
-  const course = courses.find(c => c.course_code === code);
-  if (!course) return;
+    validSelected.forEach(code => {
+      const course = courses.find(c => c.course_code === code);
+      if (!course) return;
 
-  const creditVal = course.credits || 0;
-  const pillar = course.pillar;
-  const type = course.type;
+      const creditVal = course.credits || 0;
+      const pillar = course.pillar;
+      const type = course.type;
 
-  if (pillar === "HASS") {
-    hassCredits += creditVal;
-  } else if (type === "ELECTIVE" && pillar === "ISTD") {
-    electiveCredits += creditVal;       // ISTD electives
-    allElectiveCredits += creditVal;    // also count toward all electives
-  } else if (type === "ELECTIVE") {
-    allElectiveCredits += creditVal;    // non‑ISTD electives
-  } else if (type === "CORE" && pillar === "ISTD") {
-    coreCredits += creditVal;
-  }
-});
+      if (pillar === "HASS") {
+        hassCredits += creditVal;
+      } else if (type === "ELECTIVE" && pillar === "ISTD") {
+        electiveCredits += creditVal;
+        allElectiveCredits += creditVal;
+      } else if (type === "ELECTIVE") {
+        allElectiveCredits += creditVal;
+      } else if (type === "CORE" && pillar === "ISTD") {
+        coreCredits += creditVal;
+      }
+    });
 
-const creditStatus = {
-  hassMet: hassCredits >= 60,
-  hassCredits,
-  electiveMet: electiveCredits >= 60,
-  electiveCredits,
-  coreMet: coreCredits >= 60,
-  coreCredits,
-  allElectiveCreditsMet: allElectiveCredits >= 96,
-  allElectiveCredits
-};
+    const creditStatus = {
+      hassMet: hassCredits >= 60,
+      hassCredits,
+      electiveMet: electiveCredits >= 60,
+      electiveCredits,
+      coreMet: coreCredits >= 60,
+      coreCredits,
+      allElectiveCreditsMet: allElectiveCredits >= 96,
+      allElectiveCredits
+    };
 
-res.json({ unmet, validSelected, fulfilledTracks, fulfilledMinors, creditStatus });
-
-
-
+    res.json({ unmet, validSelected, fulfilledTracks, fulfilledMinors, creditStatus });
   } catch (err) {
     console.error("Validation error:", err);
     res.status(500).json({ error: true, message: err.message, stack: err.stack });
