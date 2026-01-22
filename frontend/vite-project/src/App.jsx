@@ -28,8 +28,7 @@ const TermCard = memo(function TermCard({
   handleCourseSelect,
   handleHeaderChange,
 }) {
-  const termData =
-    selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
+  const termData = selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
   const header = termData.header;
   const coursesForTerm = termData.courses;
 
@@ -38,7 +37,6 @@ const TermCard = memo(function TermCard({
       <h3>{header}</h3>
       <input
         type="text"
-        placeholder={`Custom header for Term ${termIndex + 1}`}
         value={header}
         onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
       />
@@ -55,6 +53,7 @@ const TermCard = memo(function TermCard({
     </div>
   );
 });
+
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -130,31 +129,25 @@ export default function App() {
   }, [user]);
 
   // ✅ Efficient selection updates
-  const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
-    setSelection((prev) => {
-      const updated = { ...prev };
-      const term = updated[termIndex] || {
-        header: `Term ${termIndex}`,
-        courses: [],
-      };
-      const courses = [...term.courses];
-      courses[slotIndex] = courseCode;
-      updated[termIndex] = { ...term, courses };
-      return updated;
-    });
-  };
+const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
+  setSelection(prev => {
+    const updated = { ...prev };
+    const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+    const courses = [...term.courses];
+    courses[slotIndex] = courseCode;
+    updated[termIndex] = { ...term, courses };
+    return updated;
+  });
+};
 
-  const handleHeaderChange = (termIndex, newHeader) => {
-    setSelection((prev) => {
-      const updated = { ...prev };
-      const term = updated[termIndex] || {
-        header: `Term ${termIndex}`,
-        courses: [],
-      };
-      updated[termIndex] = { ...term, header: newHeader };
-      return updated;
-    });
-  };
+const handleHeaderChange = (termIndex, newHeader) => {
+  setSelection(prev => {
+    const updated = { ...prev };
+    const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+    updated[termIndex] = { ...term, header: newHeader };
+    return updated;
+  });
+};
 
   async function savePlanHandler() {
     try {
