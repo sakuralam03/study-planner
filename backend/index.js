@@ -189,22 +189,21 @@ app.get("/progress", async (req, res) => {
 
 
 
-
 app.post("/download-excel", async (req, res) => {
   const { selection, results } = req.body;
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Validation Results");
-
   const inputSheet = workbook.addWorksheet("Selection");
+
   Object.entries(selection).forEach(([term, courses]) => {
     inputSheet.addRow([term, ...courses]);
   });
 
-  sheet.addRow(["Unmet", results.unmet.join(", ")]);
-  sheet.addRow(["Fulfilled Tracks", results.fulfilledTracks.join(", ")]);
-  sheet.addRow(["Fulfilled Minors", results.fulfilledMinors.join(", ")]);
-  sheet.addRow(["Credits", JSON.stringify(results.creditStatus)]);
+  sheet.addRow(["Unmet", (results.unmet || []).join(", ")]);
+  sheet.addRow(["Fulfilled Tracks", (results.fulfilledTracks || []).join(", ")]);
+  sheet.addRow(["Fulfilled Minors", (results.fulfilledMinors || []).join(", ")]);
+  sheet.addRow(["Credits", JSON.stringify(results.creditStatus || {})]);
 
   res.setHeader(
     "Content-Type",
@@ -212,10 +211,9 @@ app.post("/download-excel", async (req, res) => {
   );
   res.setHeader("Content-Disposition", "attachment; filename=results.xlsx");
 
-  // Stream the workbook directly to the response
-  await workbook.xlsx.write(res);
-  res.end();
+  await workbook.xlsx.write(res); // this ends the response
 });
+
 
 
 app.post("/save-plan", async (req, res) => {
