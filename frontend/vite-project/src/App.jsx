@@ -23,14 +23,13 @@ import {
 // --- TermCard component ---
 const TermCard = memo(function TermCard({
   termIndex,
+  termData,
   courses,
-  selection,
   handleCourseSelect,
   handleHeaderChange,
 }) {
-  const termData = selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
   const header = termData.header;
-  const coursesForTerm = termData.courses;
+  const coursesForTerm = termData.courses || [];
 
   return (
     <div style={{ border: "1px solid #ccc", padding: "10px" }}>
@@ -53,6 +52,7 @@ const TermCard = memo(function TermCard({
     </div>
   );
 });
+
 function flattenSelection(selection) {
   const allCodes = [];
   Object.values(selection).forEach(term => {
@@ -114,7 +114,7 @@ export default function App() {
   useEffect(() => {
     async function autoValidate() {
       if (!selection || Object.keys(selection).length === 0) return;
-      const data = await validateSelection(selection);
+      const data = await validateSelection(flattenSelection(selection));
       setResults(data);
     }
     autoValidate();
@@ -137,29 +137,29 @@ export default function App() {
   }, [user]);
 
   // ✅ Efficient selection updates
-const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
-  setSelection(prev => {
-    const updated = { ...prev };
-    const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-    const courses = [...term.courses];
-    courses[slotIndex] = courseCode;
-    updated[termIndex] = { ...term, courses };
-    return updated;
-  });
-};
+  const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
+    setSelection(prev => {
+      const updated = { ...prev };
+      const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+      const courses = [...term.courses];
+      courses[slotIndex] = courseCode;
+      updated[termIndex] = { ...term, courses };
+      return updated;
+    });
+  };
 
-const handleHeaderChange = (termIndex, newHeader) => {
-  setSelection(prev => {
-    const updated = { ...prev };
-    const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-    updated[termIndex] = { ...term, header: newHeader };
-    return updated;
-  });
-};
+  const handleHeaderChange = (termIndex, newHeader) => {
+    setSelection(prev => {
+      const updated = { ...prev };
+      const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+      updated[termIndex] = { ...term, header: newHeader };
+      return updated;
+    });
+  };
 
   async function savePlanHandler() {
     try {
-      const validatedResults = await validateSelection(selection);
+      const validatedResults = await validateSelection(flattenSelection(selection));
       const data = await savePlan(user.studentId, selection, validatedResults);
       if (data.success) {
         const updated = await loadPlan(user.studentId);
@@ -219,16 +219,20 @@ const handleHeaderChange = (termIndex, newHeader) => {
               gap: "20px",
             }}
           >
-            {Array.from({ length: numTerms }).map((_, termIndex) => (
-              <TermCard
-                key={`term-${termIndex}`}
-                termIndex={termIndex}
-                courses={courses}
-                selection={selection}
-                handleCourseSelect={handleCourseSelect}
-                handleHeaderChange={handleHeaderChange}
-              />
-            ))}
+            {Array.from({ length: numTerms }).map((_, termIndex) => {
+              const termData =
+                selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
+              return (
+                <TermCard
+                  key={`term-${termIndex}`}
+                  termIndex={termIndex}
+                  termData={termData}   // ✅ only pass this term’s data
+                  courses={courses}
+                  handleCourseSelect={handleCourseSelect}
+                  handleHeaderChange={handleHeaderChange}
+                />
+              );
+            })}
           </div>
         </section>
 
