@@ -20,7 +20,7 @@ import {
   savePlan,
 } from "./services/api";
 
-// --- TermCard component with custom memo comparison ---
+// --- TermCard component with memoization ---
 const TermCard = memo(function TermCard({
   termIndex,
   termData,
@@ -53,9 +53,9 @@ const TermCard = memo(function TermCard({
   );
 }, (prevProps, nextProps) => {
   // Only re-render if this term’s header or courses changed
-  const prevTerm = prevProps.termData;
-  const nextTerm = nextProps.termData;
-  return JSON.stringify(prevTerm) === JSON.stringify(nextTerm);
+  return (
+    JSON.stringify(prevProps.termData) === JSON.stringify(nextProps.termData)
+  );
 });
 
 function flattenSelection(selection) {
@@ -85,8 +85,7 @@ export default function App() {
   const [selectedMinor, setSelectedMinor] = useState("");
   const [plans, setPlans] = useState([]);
 
-  // ✅ Default to 8 terms
-  const [numTerms, setNumTerms] = useState(8);
+  const [numTerms, setNumTerms] = useState(8); // default to 8 terms
 
   // Persist login
   useEffect(() => {
@@ -141,7 +140,7 @@ export default function App() {
     loadPlans();
   }, [user]);
 
-  // ✅ Efficient selection updates
+  // Efficient selection updates
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection(prev => {
       const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
