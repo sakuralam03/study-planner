@@ -1,5 +1,5 @@
 // App.jsx
-import { useState, useEffect, memo, useMemo } from "react";
+import { useState, useEffect, memo } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import LoginPage from "./components/LoginPage.jsx";
@@ -20,14 +20,16 @@ import {
   savePlan,
 } from "./services/api";
 
-// --- TermCard component ---
+// --- TermCard component with custom memo comparison ---
 const TermCard = memo(function TermCard({
   termIndex,
-  termData,
+  selection,
   courses,
   handleCourseSelect,
   handleHeaderChange,
 }) {
+  const termData =
+    selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
   const header = termData.header;
   const coursesForTerm = termData.courses || [];
 
@@ -51,6 +53,11 @@ const TermCard = memo(function TermCard({
       ))}
     </div>
   );
+}, (prevProps, nextProps) => {
+  // Only re-render if this term’s header or courses changed
+  const prevTerm = prevProps.selection[prevProps.termIndex + 1];
+  const nextTerm = nextProps.selection[nextProps.termIndex + 1];
+  return JSON.stringify(prevTerm) === JSON.stringify(nextTerm);
 });
 
 function flattenSelection(selection) {
@@ -221,22 +228,16 @@ export default function App() {
               gap: "20px",
             }}
           >
-            {Array.from({ length: numTerms }).map((_, termIndex) => {
-              const termData = useMemo(() => (
-                selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] }
-              ), [selection, termIndex]);
-
-              return (
-                <TermCard
-                  key={`term-${termIndex}`}
-                  termIndex={termIndex}
-                  termData={termData}
-                  courses={courses}
-                  handleCourseSelect={handleCourseSelect}
-                  handleHeaderChange={handleHeaderChange}
-                />
-              );
-            })}
+            {Array.from({ length: numTerms }).map((_, termIndex) => (
+              <TermCard
+                key={`term-${termIndex}`}
+                termIndex={termIndex}
+                selection={selection}
+                courses={courses}
+                handleCourseSelect={handleCourseSelect}
+                handleHeaderChange={handleHeaderChange}
+              />
+            ))}
           </div>
         </section>
 
