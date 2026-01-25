@@ -191,31 +191,32 @@ app.get("/progress", async (req, res) => {
 
 
 app.post("/download-excel", async (req, res) => {
-  const { selection, results } = req.body; // include input + output
+  const { selection, results } = req.body;
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Validation Results");
 
-  // Input sheet
   const inputSheet = workbook.addWorksheet("Selection");
   Object.entries(selection).forEach(([term, courses]) => {
     inputSheet.addRow([term, ...courses]);
   });
 
-  // Output sheet
   sheet.addRow(["Unmet", results.unmet.join(", ")]);
   sheet.addRow(["Fulfilled Tracks", results.fulfilledTracks.join(", ")]);
   sheet.addRow(["Fulfilled Minors", results.fulfilledMinors.join(", ")]);
   sheet.addRow(["Credits", JSON.stringify(results.creditStatus)]);
 
-  const buffer = await workbook.xlsx.writeBuffer();
   res.setHeader(
     "Content-Type",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   );
   res.setHeader("Content-Disposition", "attachment; filename=results.xlsx");
-  res.send(buffer);
+
+  // Stream the workbook directly to the response
+  await workbook.xlsx.write(res);
+  res.end();
 });
+
 
 app.post("/save-plan", async (req, res) => {
   try {
