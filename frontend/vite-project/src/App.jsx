@@ -23,13 +23,11 @@ import {
 // --- TermCard component with custom memo comparison ---
 const TermCard = memo(function TermCard({
   termIndex,
-  selection,
+  termData,
   courses,
   handleCourseSelect,
   handleHeaderChange,
 }) {
-  const termData =
-    selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
   const header = termData.header;
   const coursesForTerm = termData.courses || [];
 
@@ -55,8 +53,8 @@ const TermCard = memo(function TermCard({
   );
 }, (prevProps, nextProps) => {
   // Only re-render if this term’s header or courses changed
-  const prevTerm = prevProps.selection[prevProps.termIndex + 1];
-  const nextTerm = nextProps.selection[nextProps.termIndex + 1];
+  const prevTerm = prevProps.termData;
+  const nextTerm = nextProps.termData;
   return JSON.stringify(prevTerm) === JSON.stringify(nextTerm);
 });
 
@@ -228,16 +226,20 @@ export default function App() {
               gap: "20px",
             }}
           >
-            {Array.from({ length: numTerms }).map((_, termIndex) => (
-              <TermCard
-                key={`term-${termIndex}`}
-                termIndex={termIndex}
-                selection={selection}
-                courses={courses}
-                handleCourseSelect={handleCourseSelect}
-                handleHeaderChange={handleHeaderChange}
-              />
-            ))}
+            {Array.from({ length: numTerms }).map((_, termIndex) => {
+              const termData =
+                selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
+              return (
+                <TermCard
+                  key={`term-${termIndex}`}
+                  termIndex={termIndex}
+                  termData={termData}
+                  courses={courses}
+                  handleCourseSelect={handleCourseSelect}
+                  handleHeaderChange={handleHeaderChange}
+                />
+              );
+            })}
           </div>
         </section>
 
