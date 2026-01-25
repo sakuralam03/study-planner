@@ -1,5 +1,5 @@
 // App.jsx
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, memo, useMemo } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import LoginPage from "./components/LoginPage.jsx";
@@ -139,21 +139,23 @@ export default function App() {
   // ✅ Efficient selection updates
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection(prev => {
-      const updated = { ...prev };
-      const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+      const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
       const courses = [...term.courses];
       courses[slotIndex] = courseCode;
-      updated[termIndex] = { ...term, courses };
-      return updated;
+      return {
+        ...prev,
+        [termIndex]: { ...term, courses }
+      };
     });
   };
 
   const handleHeaderChange = (termIndex, newHeader) => {
     setSelection(prev => {
-      const updated = { ...prev };
-      const term = updated[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-      updated[termIndex] = { ...term, header: newHeader };
-      return updated;
+      const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+      return {
+        ...prev,
+        [termIndex]: { ...term, header: newHeader }
+      };
     });
   };
 
@@ -220,13 +222,15 @@ export default function App() {
             }}
           >
             {Array.from({ length: numTerms }).map((_, termIndex) => {
-              const termData =
-                selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
+              const termData = useMemo(() => (
+                selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] }
+              ), [selection, termIndex]);
+
               return (
                 <TermCard
                   key={`term-${termIndex}`}
                   termIndex={termIndex}
-                  termData={termData}   // ✅ only pass this term’s data
+                  termData={termData}
                   courses={courses}
                   handleCourseSelect={handleCourseSelect}
                   handleHeaderChange={handleHeaderChange}
