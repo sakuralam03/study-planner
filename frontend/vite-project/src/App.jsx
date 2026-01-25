@@ -20,7 +20,8 @@ import {
   savePlan,
 } from "./services/api";
 
-// --- TermCard component with memoization ---
+/* ---------------- TermCard ---------------- */
+
 const TermCard = memo(function TermCard({
   termIndex,
   selection,
@@ -30,8 +31,8 @@ const TermCard = memo(function TermCard({
 }) {
   const termData =
     selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
-  const header = termData.header;
-  const coursesForTerm = termData.courses || [];
+
+  const { header, courses: coursesForTerm = [] } = termData;
 
   return (
     <div style={{ border: "1px solid #ccc", padding: "10px" }}>
@@ -39,8 +40,11 @@ const TermCard = memo(function TermCard({
       <input
         type="text"
         value={header}
-        onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
+        onChange={(e) =>
+          handleHeaderChange(termIndex + 1, e.target.value)
+        }
       />
+
       {Array.from({ length: 4 }).map((_, slotIndex) => (
         <CourseDropdown
           key={slotIndex}
@@ -54,11 +58,12 @@ const TermCard = memo(function TermCard({
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Only re-render if this term’s slice of selection changed
   const prevTerm = prevProps.selection[prevProps.termIndex + 1];
   const nextTerm = nextProps.selection[nextProps.termIndex + 1];
   return JSON.stringify(prevTerm) === JSON.stringify(nextTerm);
 });
+
+/* ---------------- Helpers ---------------- */
 
 function flattenSelection(selection) {
   const allCodes = [];
@@ -69,6 +74,108 @@ function flattenSelection(selection) {
   });
   return allCodes;
 }
+
+/* ---------------- PlannerUI (MOVED OUT) ---------------- */
+
+function PlannerUI({
+  user,
+  setUser,
+  agreed,
+  setAgreed,
+  plans,
+  selection,
+  courses,
+  numTerms,
+  setNumTerms,
+  handleCourseSelect,
+  handleHeaderChange,
+  results,
+  savePlanHandler,
+  selectedTrack,
+  selectedMinor,
+  groupedMinors,
+}) {
+  if (!user) return <LoginPage onLogin={setUser} />;
+  if (!agreed) return <TermsModal onAgree={() => setAgreed(true)} />;
+
+  return (
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <h1>Student Study Planner</h1>
+
+      <button
+        onClick={() => {
+          setUser(null);
+          setAgreed(false);
+        }}
+        style={{ marginBottom: "20px" }}
+      >
+        Logout
+      </button>
+
+      <Plans studentId={user.studentId} plans={plans.slice(0, 1)} />
+
+      <section>
+        <h2>Term Planner</h2>
+
+        <label>
+          Number of terms:{" "}
+          <input
+            type="number"
+            min="1"
+            max="20"
+            value={numTerms}
+            onChange={(e) =>
+              setNumTerms(parseInt(e.target.value, 10))
+            }
+          />
+        </label>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "20px",
+            marginTop: "20px",
+          }}
+        >
+          {Array.from({ length: numTerms }).map((_, termIndex) => (
+            <TermCard
+              key={`term-${termIndex}`}
+              termIndex={termIndex}
+              selection={selection}
+              courses={courses}
+              handleCourseSelect={handleCourseSelect}
+              handleHeaderChange={handleHeaderChange}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2>Validation Alerts</h2>
+        <ValidationAlerts
+          selection={selection}
+          track={selectedTrack}
+          minor={selectedMinor}
+          minorRules={groupedMinors[selectedMinor]}
+        />
+      </section>
+
+      {results && (
+        <>
+          <ResultsDownload
+            selection={selection}
+            results={results}
+            studentId={user.studentId}
+          />
+          <button onClick={savePlanHandler}>Save Plan</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- App ---------------- */
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -86,188 +193,103 @@ export default function App() {
   const [selectedTrack, setSelectedTrack] = useState("");
   const [selectedMinor, setSelectedMinor] = useState("");
   const [plans, setPlans] = useState([]);
+  const [numTerms, setNumTerms] = useState(8);
 
-  const [numTerms, setNumTerms] = useState(8); // default to 8 terms
-
-  // Persist login
+  /* Persist login */
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
-    } else {
-      localStorage.removeItem("user");
-    }
+    if (user) localStorage.setItem("user", JSON.stringify(user));
+    else localStorage.removeItem("user");
   }, [user]);
 
-  // Load static data
+  /* Load static data */
   useEffect(() => {
     async function loadData() {
-      const tracksRes = await getTracks();
-      setTracks(tracksRes.tracks);
-
-      const minorsRes = await getMinors();
-      setMinors(minorsRes.minors);
-
-      const coursesRes = await getCourses();
-      setCourses(coursesRes.courses);
-
-      const termTemplateRes = await getTermTemplate();
-      setTermTemplate(termTemplateRes.termTemplate);
+      setTracks((await getTracks()).tracks);
+      setMinors((await getMinors()).minors);
+      setCourses((await getCourses()).courses);
+      setTermTemplate((await getTermTemplate()).termTemplate);
     }
     loadData();
   }, []);
 
-  // Auto‑validate whenever selection changes
+  /* Auto-validate */
   useEffect(() => {
-    async function autoValidate() {
-      if (!selection || Object.keys(selection).length === 0) return;
-      const data = await validateSelection(flattenSelection(selection));
-      setResults(data);
-    }
-    autoValidate();
+    if (!Object.keys(selection).length) return;
+    validateSelection(flattenSelection(selection)).then(setResults);
   }, [selection]);
 
-  // Load plans when user logs in
+  /* Load plans */
   useEffect(() => {
-    async function loadPlans() {
-      if (!user) return;
-      const data = await loadPlan(user.studentId);
+    if (!user) return;
+    loadPlan(user.studentId).then(data => {
       setPlans(data.plans);
-
-      if (data.plans && data.plans.length > 0) {
-        const latest = data.plans[0];
-        setSelection(latest.selection);
-        setResults(latest.results);
+      if (data.plans?.length) {
+        setSelection(data.plans[0].selection);
+        setResults(data.plans[0].results);
       }
-    }
-    loadPlans();
+    });
   }, [user]);
 
-  // Efficient selection updates
+  /* Handlers */
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection(prev => {
       const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
       const courses = [...term.courses];
       courses[slotIndex] = courseCode;
-      return {
-        ...prev,
-        [termIndex]: { ...term, courses }
-      };
+      return { ...prev, [termIndex]: { ...term, courses } };
     });
   };
 
   const handleHeaderChange = (termIndex, newHeader) => {
     setSelection(prev => {
       const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-      return {
-        ...prev,
-        [termIndex]: { ...term, header: newHeader }
-      };
+      return { ...prev, [termIndex]: { ...term, header: newHeader } };
     });
   };
 
   async function savePlanHandler() {
-    try {
-      const validatedResults = await validateSelection(flattenSelection(selection));
-      const data = await savePlan(user.studentId, selection, validatedResults);
-      if (data.success) {
-        const updated = await loadPlan(user.studentId);
-        setPlans(updated.plans);
-        alert("Plan saved successfully!");
-      }
-    } catch (err) {
-      console.error("Error saving plan:", err);
-      alert("Error saving plan.");
+    const validatedResults = await validateSelection(
+      flattenSelection(selection)
+    );
+    const data = await savePlan(user.studentId, selection, validatedResults);
+    if (data.success) {
+      const updated = await loadPlan(user.studentId);
+      setPlans(updated.plans);
+      alert("Plan saved successfully!");
     }
   }
 
   const groupedMinors = minors.reduce((acc, m) => {
-    if (!acc[m.minor_name]) acc[m.minor_name] = [];
-    acc[m.minor_name].push(m);
+    (acc[m.minor_name] ||= []).push(m);
     return acc;
   }, {});
-
-  function PlannerUI() {
-    if (!user) return <LoginPage onLogin={setUser} />;
-    if (!agreed) return <TermsModal onAgree={() => setAgreed(true)} />;
-
-    return (
-      <div style={{ padding: "20px", fontFamily: "Arial" }}>
-        <h1>Student Study Planner</h1>
-
-        <button
-          onClick={() => {
-            setUser(null);
-            setAgreed(false);
-          }}
-          style={{ marginBottom: "20px" }}
-        >
-          Logout
-        </button>
-
-        <Plans studentId={user.studentId} plans={plans.slice(0, 1)} />
-
-        <section>
-          <h2>Term Planner</h2>
-          <div style={{ marginBottom: "20px" }}>
-            <label>
-              Number of terms:{" "}
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={numTerms}
-                onChange={(e) => setNumTerms(parseInt(e.target.value, 10))}
-              />
-            </label>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "20px",
-            }}
-          >
-            {Array.from({ length: numTerms }).map((_, termIndex) => (
-              <TermCard
-                key={`term-${termIndex}`}
-                termIndex={termIndex}
-                selection={selection}   // ✅ pass selection + termIndex
-                courses={courses}
-                handleCourseSelect={handleCourseSelect}
-                handleHeaderChange={handleHeaderChange}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2>Validation Alerts</h2>
-          <ValidationAlerts
-            selection={selection}
-            track={selectedTrack}
-            minor={selectedMinor}
-            minorRules={groupedMinors[selectedMinor]}
-          />
-        </section>
-
-        {results && (
-          <>
-            <ResultsDownload
-              selection={selection}
-              results={results}
-              studentId={user.studentId}
-            />
-            <button onClick={savePlanHandler}>Save Plan</button>
-          </>
-        )}
-      </div>
-    );
-  }
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<PlannerUI />} />
+        <Route
+          path="/"
+          element={
+            <PlannerUI
+              user={user}
+              setUser={setUser}
+              agreed={agreed}
+              setAgreed={setAgreed}
+              plans={plans}
+              selection={selection}
+              courses={courses}
+              numTerms={numTerms}
+              setNumTerms={setNumTerms}
+              handleCourseSelect={handleCourseSelect}
+              handleHeaderChange={handleHeaderChange}
+              results={results}
+              savePlanHandler={savePlanHandler}
+              selectedTrack={selectedTrack}
+              selectedMinor={selectedMinor}
+              groupedMinors={groupedMinors}
+            />
+          }
+        />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Routes>
     </BrowserRouter>
