@@ -23,11 +23,13 @@ import {
 // --- TermCard component with memoization ---
 const TermCard = memo(function TermCard({
   termIndex,
-  termData,
+  selection,
   courses,
   handleCourseSelect,
   handleHeaderChange,
 }) {
+  const termData =
+    selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
   const header = termData.header;
   const coursesForTerm = termData.courses || [];
 
@@ -52,10 +54,10 @@ const TermCard = memo(function TermCard({
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Only re-render if this term’s header or courses changed
-  return (
-    JSON.stringify(prevProps.termData) === JSON.stringify(nextProps.termData)
-  );
+  // Only re-render if this term’s slice of selection changed
+  const prevTerm = prevProps.selection[prevProps.termIndex + 1];
+  const nextTerm = nextProps.selection[nextProps.termIndex + 1];
+  return JSON.stringify(prevTerm) === JSON.stringify(nextTerm);
 });
 
 function flattenSelection(selection) {
@@ -225,20 +227,16 @@ export default function App() {
               gap: "20px",
             }}
           >
-            {Array.from({ length: numTerms }).map((_, termIndex) => {
-              const termData =
-                selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
-              return (
-                <TermCard
-                  key={`term-${termIndex}`}
-                  termIndex={termIndex}
-                  termData={termData}
-                  courses={courses}
-                  handleCourseSelect={handleCourseSelect}
-                  handleHeaderChange={handleHeaderChange}
-                />
-              );
-            })}
+            {Array.from({ length: numTerms }).map((_, termIndex) => (
+              <TermCard
+                key={`term-${termIndex}`}
+                termIndex={termIndex}
+                selection={selection}   // ✅ pass selection + termIndex
+                courses={courses}
+                handleCourseSelect={handleCourseSelect}
+                handleHeaderChange={handleHeaderChange}
+              />
+            ))}
           </div>
         </section>
 
