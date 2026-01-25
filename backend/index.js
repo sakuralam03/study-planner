@@ -188,30 +188,40 @@ app.get("/progress", async (req, res) => {
 });
 
 
-
 app.post("/download-excel", async (req, res) => {
   const { selection, results } = req.body;
 
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Validation Results");
-  const inputSheet = workbook.addWorksheet("Selection");
 
-  Object.entries(selection).forEach(([term, courses]) => {
-    inputSheet.addRow([term, ...courses]);
+  const inputSheet = workbook.addWorksheet("Selection");
+  const resultsSheet = workbook.addWorksheet("Validation Results");
+
+  // Header row
+  inputSheet.addRow(["Term", "Course 1", "Course 2", "Course 3", "Course 4"]);
+
+  Object.entries(selection).forEach(([term, data]) => {
+    inputSheet.addRow([
+      data.header || `Term ${term}`,
+      ...(data.courses || [])
+    ]);
   });
 
-  sheet.addRow(["Unmet", (results.unmet || []).join(", ")]);
-  sheet.addRow(["Fulfilled Tracks", (results.fulfilledTracks || []).join(", ")]);
-  sheet.addRow(["Fulfilled Minors", (results.fulfilledMinors || []).join(", ")]);
-  sheet.addRow(["Credits", JSON.stringify(results.creditStatus || {})]);
+  resultsSheet.addRow(["Unmet", (results.unmet || []).join(", ")]);
+  resultsSheet.addRow(["Fulfilled Tracks", (results.fulfilledTracks || []).join(", ")]);
+  resultsSheet.addRow(["Fulfilled Minors", (results.fulfilledMinors || []).join(", ")]);
+  resultsSheet.addRow(["Credits", JSON.stringify(results.creditStatus || {})]);
 
   res.setHeader(
     "Content-Type",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   );
-  res.setHeader("Content-Disposition", "attachment; filename=results.xlsx");
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=results.xlsx"
+  );
 
-  await workbook.xlsx.write(res); // this ends the response
+  await workbook.xlsx.write(res);
+  res.end();
 });
 
 
