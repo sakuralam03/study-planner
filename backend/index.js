@@ -202,7 +202,7 @@ app.post("/download-excel", async (req, res) => {
   Object.entries(selection).forEach(([term, data]) => {
     inputSheet.addRow([
       data.header || `Term ${term}`,
-      ...(data.courses || [])
+      ...(data.courses || []).map(c => c.code || "")
     ]);
   });
 
@@ -384,26 +384,31 @@ app.post("/validate-selection", async (req, res) => {
     let selectionByTerm = {};
 
     if (isTermStructured) {
-      const orderedTerms = sortTermsNatural(Object.keys(selection));
-      orderedTerms.forEach(t => {
-        const term = selection[t];
-        if (Array.isArray(term)) {
-          // old shape: term is already an array
-          selectionByTerm[t] = normalizeArray(term);
-        } else if (term && term.courses) {
-          // new shape: term is { header, courses }
-          selectionByTerm[t] = normalizeArray(term.courses);
-        } else {
-          selectionByTerm[t] = [];
-        }
-      });
-      allSelected = Object.values(selectionByTerm).flat().map(normalize);
+  const orderedTerms = sortTermsNatural(Object.keys(selection));
+  orderedTerms.forEach(t => {
+    const term = selection[t];
+    if (Array.isArray(term)) {
+      // old shape: term is already an array
+      selectionByTerm[t] = normalizeArray(term);
+    } else if (term && term.courses) {
+      // new shape: term is { header, courses }
+      selectionByTerm[t] = (term.courses || [])
+        .filter(c => c && c.passed)              // only passed courses
+        .map(c => normalize(c.code));            // normalize course code
     } else {
-      // Flat array: treat as single "Term 0"
-      const normalized = normalizeArray(selection);
-      selectionByTerm["Term 0"] = normalized;
-      allSelected = normalized;
+      selectionByTerm[t] = [];
     }
+  });
+
+  // ✅ compute once after loop
+  allSelected = Object.values(selectionByTerm).flat();
+} else {
+  // Flat array: treat as single "Term 0"
+  const normalized = normalizeArray(selection);
+  selectionByTerm["Term 0"] = normalized;
+  allSelected = normalized;
+}
+
 
     // --- course -> term number map ---
     const courseToTerm = {};

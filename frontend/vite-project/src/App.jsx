@@ -21,18 +21,18 @@ import {
 } from "./services/api";
 
 /* ---------------- TermCard ---------------- */
-
 const TermCard = memo(function TermCard({
   termIndex,
   selection,
   courses,
   handleCourseSelect,
   handleHeaderChange,
+  handlePassedToggle,
 }) {
   const termData =
     selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
-
-  const { header, courses: coursesForTerm = [] } = termData;
+  const header = termData.header;
+  const coursesForTerm = termData.courses || [];
 
   return (
     <div style={{ border: "1px solid #ccc", padding: "10px" }}>
@@ -40,21 +40,30 @@ const TermCard = memo(function TermCard({
       <input
         type="text"
         value={header}
-        onChange={(e) =>
-          handleHeaderChange(termIndex + 1, e.target.value)
-        }
+        onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
       />
-
-      {Array.from({ length: 4 }).map((_, slotIndex) => (
-        <CourseDropdown
-          key={slotIndex}
-          courses={courses}
-          value={coursesForTerm[slotIndex] || ""}
-          onSelect={(courseCode) =>
-            handleCourseSelect(termIndex + 1, slotIndex, courseCode)
-          }
-        />
-      ))}
+      {Array.from({ length: 4 }).map((_, slotIndex) => {
+        const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
+        return (
+          <div key={slotIndex} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <CourseDropdown
+              courses={courses}
+              value={slot.code}
+              onSelect={(courseCode) =>
+                handleCourseSelect(termIndex + 1, slotIndex, courseCode)
+              }
+            />
+            <label>
+              <input
+                type="checkbox"
+                checked={slot.passed || false}
+                onChange={() => handlePassedToggle(termIndex + 1, slotIndex)}
+              />
+              Passed
+            </label>
+          </div>
+        );
+      })}
     </div>
   );
 }, (prevProps, nextProps) => {
@@ -64,19 +73,17 @@ const TermCard = memo(function TermCard({
 });
 
 /* ---------------- Helpers ---------------- */
-
 function flattenSelection(selection) {
   const allCodes = [];
   Object.values(selection).forEach(term => {
     if (term.courses) {
-      allCodes.push(...term.courses.filter(Boolean));
+      allCodes.push(...term.courses.filter(c => c?.passed).map(c => c.code));
     }
   });
   return allCodes;
 }
 
-/* ---------------- PlannerUI (MOVED OUT) ---------------- */
-
+/* ---------------- PlannerUI ---------------- */
 function PlannerUI({
   user,
   setUser,
@@ -89,6 +96,7 @@ function PlannerUI({
   setNumTerms,
   handleCourseSelect,
   handleHeaderChange,
+  handlePassedToggle,
   results,
   savePlanHandler,
   selectedTrack,
@@ -116,7 +124,6 @@ function PlannerUI({
 
       <section>
         <h2>Term Planner</h2>
-
         <label>
           Number of terms:{" "}
           <input
@@ -124,9 +131,7 @@ function PlannerUI({
             min="1"
             max="20"
             value={numTerms}
-            onChange={(e) =>
-              setNumTerms(parseInt(e.target.value, 10))
-            }
+            onChange={(e) => setNumTerms(parseInt(e.target.value, 10))}
           />
         </label>
 
@@ -146,6 +151,7 @@ function PlannerUI({
               courses={courses}
               handleCourseSelect={handleCourseSelect}
               handleHeaderChange={handleHeaderChange}
+              handlePassedToggle={handlePassedToggle}
             />
           ))}
         </div>
@@ -176,7 +182,6 @@ function PlannerUI({
 }
 
 /* ---------------- App ---------------- */
-
 export default function App() {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("user");
@@ -235,7 +240,7 @@ export default function App() {
     setSelection(prev => {
       const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
       const courses = [...term.courses];
-      courses[slotIndex] = courseCode;
+      courses[slotIndex] = { code: courseCode, passed: courses[slotIndex]?.passed || false };
       return { ...prev, [termIndex]: { ...term, courses } };
     });
   };
@@ -247,10 +252,19 @@ export default function App() {
     });
   };
 
+  const handlePassedToggle = (termIndex, slotIndex) => {
+    setSelection(prev => {
+      const term = prev[termIndex];
+      const courses = [...term.courses];
+      if (courses[slotIndex]) {
+        courses[slotIndex] = { ...courses[slotIndex], passed: !courses[slotIndex].passed };
+      }
+      return { ...prev, [termIndex]: { ...term, courses } };
+    });
+  };
+
   async function savePlanHandler() {
-    const validatedResults = await validateSelection(
-      flattenSelection(selection)
-    );
+    const validatedResults = await validateSelection(flattenSelection(selection));
     const data = await savePlan(user.studentId, selection, validatedResults);
     if (data.success) {
       const updated = await loadPlan(user.studentId);
@@ -271,7 +285,7 @@ export default function App() {
           path="/"
           element={
             <PlannerUI
-              user={user}
+                            user={user}
               setUser={setUser}
               agreed={agreed}
               setAgreed={setAgreed}
@@ -282,6 +296,7 @@ export default function App() {
               setNumTerms={setNumTerms}
               handleCourseSelect={handleCourseSelect}
               handleHeaderChange={handleHeaderChange}
+              handlePassedToggle={handlePassedToggle}
               results={results}
               savePlanHandler={savePlanHandler}
               selectedTrack={selectedTrack}
