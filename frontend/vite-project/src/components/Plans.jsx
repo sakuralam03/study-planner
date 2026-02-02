@@ -13,7 +13,10 @@ function Plans({ studentId, plans }) {
               <ul>
                 {Object.entries(plan.selection).map(([term, data]) => (
                   <li key={term}>
-                    {data.header || `Term ${term}`}: {data.courses?.map(c => c.code + (c.passed ? " ✓" : "")).join(", ") || "No courses"}
+                    {data.header || `Term ${term}`}: {data.courses?.map(c => c ? (c.code + (c.passed ? " ✓" : "")) : "")
+               .filter(Boolean)
+               .join(", ") || "No courses"}
+
 
                   </li>
                 ))}

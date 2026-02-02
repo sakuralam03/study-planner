@@ -202,7 +202,8 @@ app.post("/download-excel", async (req, res) => {
   Object.entries(selection).forEach(([term, data]) => {
     inputSheet.addRow([
       data.header || `Term ${term}`,
-      ...(data.courses || []).map(c => c.code || "")
+      ...(data.courses || []).map(c => c && c.code ? c.code : "")
+
     ]);
   });
 
@@ -221,7 +222,7 @@ app.post("/download-excel", async (req, res) => {
   );
 
   await workbook.xlsx.write(res);
-  res.end();
+
 });
 
 
