@@ -42,7 +42,7 @@ const TermCard = memo(function TermCard({
         value={header}
         onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
       />
-      {Array.from({ length: 4 }).map((_, slotIndex) => {
+      {Array.from({ length: 5 }).map((_, slotIndex) => {
         const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
         return (
           <div key={slotIndex} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
