@@ -37,10 +37,11 @@ button {
   border-radius: 4px;
   cursor: pointer;
   font-weight: 600;
+  transition: background-color 0.2s ease;
 }
 
 button:hover {
-  background-color: #a00000;
+  background-color: #a00000; /* darker red on hover */
 }
 
 /* Logout button spacing */
