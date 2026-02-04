@@ -47,35 +47,3 @@ button:hover {
 .logout-btn {
   margin-bottom: 20px;
 }
-
-/* Term cards grid */
-.term-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 20px;
-  margin-top: 20px;
-}
-
-.term-card {
-  padding: 20px;
-  min-width: 350px;
-}
-
-
-/* Header input inside term card */
-.term-card input[type="text"] {
-  width: 100%;
-  padding: 6px;
-  margin-bottom: 10px;
-  border: 1px solid #aaa;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-/* Course dropdown + passed checkbox row */
-.course-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
