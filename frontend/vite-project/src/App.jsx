@@ -10,6 +10,9 @@ import ValidationAlerts from "./components/ValidationAlerts.jsx";
 import ResultsDownload from "./components/ResultsDownload.jsx";
 import ResetPasswordPage from "./components/ResetPasswordPage.jsx";
 
+import sutdLogo from "./assets/sutd_logo.jpg"; // logo at top
+import "./PlannerUI.css"; // new stylesheet
+
 import {
   getTracks,
   getMinors,
@@ -35,7 +38,7 @@ const TermCard = memo(function TermCard({
   const coursesForTerm = termData.courses || [];
 
   return (
-    <div style={{ border: "1px solid #ccc", padding: "10px" }}>
+    <div className="term-card">
       <h3>{header}</h3>
       <input
         type="text"
@@ -45,7 +48,7 @@ const TermCard = memo(function TermCard({
       {Array.from({ length: 5 }).map((_, slotIndex) => {
         const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
         return (
-          <div key={slotIndex} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div key={slotIndex} className="course-row">
             <CourseDropdown
               courses={courses}
               value={slot.code}
@@ -107,7 +110,8 @@ function PlannerUI({
   if (!agreed) return <TermsModal onAgree={() => setAgreed(true)} />;
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+    <div className="planner-container">
+      <img src={sutdLogo} alt="SUTD Logo" className="planner-logo" />
       <h1>Student Study Planner</h1>
 
       <button
@@ -115,7 +119,7 @@ function PlannerUI({
           setUser(null);
           setAgreed(false);
         }}
-        style={{ marginBottom: "20px" }}
+        className="logout-btn"
       >
         Logout
       </button>
@@ -135,14 +139,7 @@ function PlannerUI({
           />
         </label>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "20px",
-            marginTop: "20px",
-          }}
-        >
+        <div className="term-grid">
           {Array.from({ length: numTerms }).map((_, termIndex) => (
             <TermCard
               key={`term-${termIndex}`}
@@ -174,7 +171,9 @@ function PlannerUI({
             results={results}
             studentId={user.studentId}
           />
-          <button onClick={savePlanHandler}>Save Plan</button>
+          <button className="primary-btn" onClick={savePlanHandler}>
+            Save Plan
+          </button>
         </>
       )}
     </div>
@@ -278,14 +277,14 @@ export default function App() {
     return acc;
   }, {});
 
-  return (
+   return (
     <BrowserRouter>
       <Routes>
         <Route
           path="/"
           element={
             <PlannerUI
-                            user={user}
+              user={user}
               setUser={setUser}
               agreed={agreed}
               setAgreed={setAgreed}
