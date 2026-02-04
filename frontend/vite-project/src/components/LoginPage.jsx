@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import sutdLogo from "./assets/sutd_logo.jpg"; // adjust path if needed
-import "./LoginPage.css";
+import sutdLogo from "../assets/sutd_logo.jpg";
+
+import "../LoginPage.css";
+
 
 export default function LoginPage({ onLogin }) {
   const [mode, setMode] = useState("login"); // "login" | "register" | "reset"
@@ -10,6 +12,7 @@ export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState(""); // "success" | "error"
 
   const API_URL = import.meta.env.VITE_API_BASE;
 
@@ -43,18 +46,23 @@ export default function LoginPage({ onLogin }) {
           localStorage.setItem("token", data.token);
           onLogin({ studentId });
           setMessage("");
+          setMessageType("");
         } else if (mode === "register") {
-          setMessage(" Account created successfully. Please log in.");
+          setMessage("Account created successfully. Please log in.");
+          setMessageType("success");
           setMode("login");
         } else if (mode === "reset") {
-          setMessage(" Reset link sent to your email.");
+          setMessage("Reset link sent to your email.");
+          setMessageType("success");
           setMode("login");
         }
       } else {
-        setMessage(`❌ ${data.error || "Unknown error"}`);
+        setMessage(data.error || "Unknown error");
+        setMessageType("error");
       }
     } catch (err) {
-      setMessage(`❌ Network error: ${err.message}`);
+      setMessage(`Network error: ${err.message}`);
+      setMessageType("error");
     }
   };
 
@@ -119,7 +127,7 @@ export default function LoginPage({ onLogin }) {
         </form>
 
         {message && (
-          <p className={message.startsWith("✅") ? "success-msg" : "error-msg"}>
+          <p className={messageType === "success" ? "success-msg" : "error-msg"}>
             {message}
           </p>
         )}
