@@ -11,6 +11,7 @@ import ResultsDownload from "./components/ResultsDownload.jsx";
 import ResetPasswordPage from "./components/ResetPasswordPage.jsx";
 import "./PlannerUI.css";
 
+import sutdLogo from "./assets/sutd_logo.jpg";
 
 import {
   getTracks,
@@ -109,7 +110,8 @@ function PlannerUI({
   if (!agreed) return <TermsModal onAgree={() => setAgreed(true)} />;
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+    <div className="planner-container">
+      <img src={sutdLogo} alt="SUTD Logo" className="planner-logo" />
       <h1>Student Study Planner</h1>
 
       <button
@@ -117,7 +119,7 @@ function PlannerUI({
           setUser(null);
           setAgreed(false);
         }}
-        style={{ marginBottom: "20px" }}
+        className="logout-btn"
       >
         Logout
       </button>
@@ -137,14 +139,7 @@ function PlannerUI({
           />
         </label>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "20px",
-            marginTop: "20px",
-          }}
-        >
+        <div className="term-grid">
           {Array.from({ length: numTerms }).map((_, termIndex) => (
             <TermCard
               key={`term-${termIndex}`}
@@ -182,6 +177,7 @@ function PlannerUI({
     </div>
   );
 }
+
 
 /* ---------------- App ---------------- */
 export default function App() {
