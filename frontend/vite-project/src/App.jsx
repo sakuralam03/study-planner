@@ -46,27 +46,30 @@ const TermCard = memo(function TermCard({
         onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
       />
       {Array.from({ length: 5 }).map((_, slotIndex) => {
-        const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
-        return (
-          <div key={slotIndex} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <CourseDropdown
-              courses={courses}
-              value={slot.code}
-              onSelect={(courseCode) =>
-                handleCourseSelect(termIndex + 1, slotIndex, courseCode)
-              }
-            />
-            <label>
-              <input
-                type="checkbox"
-                checked={slot.passed || false}
-                onChange={() => handlePassedToggle(termIndex + 1, slotIndex)}
-              />
-              Passed
-            </label>
-          </div>
-        );
-      })}
+  // Default: first 4 slots ticked, last one not
+  const slot = coursesForTerm[slotIndex] || { code: "", passed: slotIndex < 4 };
+
+  return (
+    <div key={slotIndex} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <CourseDropdown
+        courses={courses}
+        value={slot.code}
+        onSelect={(courseCode) =>
+          handleCourseSelect(termIndex + 1, slotIndex, courseCode)
+        }
+      />
+      <label>
+        <input
+          type="checkbox"
+          checked={slot.passed || false}
+          onChange={() => handlePassedToggle(termIndex + 1, slotIndex)}
+        />
+        Passed
+      </label>
+    </div>
+  );
+})}
+
     </div>
   );
 }, (prevProps, nextProps) => {
