@@ -46,8 +46,9 @@ const TermCard = memo(function TermCard({
         onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
       />
       {Array.from({ length: 5 }).map((_, slotIndex) => {
-  // Default: first 4 slots ticked, last one not
-  const slot = coursesForTerm[slotIndex] || { code: "", passed: slotIndex < 4 };
+
+const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
+
 
   return (
     <div key={slotIndex} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -138,8 +139,9 @@ function PlannerUI({
             min="1"
             max="20"
             value={numTerms}
-            onChange={(e) => setNumTerms(parseInt(e.target.value, 10))}
+            onChange={(e) => setNumTerms(Number(e.target.value) || 1)}
           />
+
         </label>
 
         <div className="term-grid">
