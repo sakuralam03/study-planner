@@ -237,14 +237,17 @@ export default function App() {
   }, [user]);
 
   /* Handlers */
-  const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
-    setSelection(prev => {
-      const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-      const courses = [...term.courses];
-      courses[slotIndex] = { code: courseCode, passed: courses[slotIndex]?.passed || false };
-      return { ...prev, [termIndex]: { ...term, courses } };
-    });
-  };
+const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
+  setSelection(prev => {
+    const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+    const courses = [...term.courses];
+    const prevSlot = courses[slotIndex] || {}; // keep any existing state
+    // Always tick when a course is selected
+    courses[slotIndex] = { ...prevSlot, code: courseCode, passed: true };
+    return { ...prev, [termIndex]: { ...term, courses } };
+  });
+};
+
 
   const handleHeaderChange = (termIndex, newHeader) => {
     setSelection(prev => {
