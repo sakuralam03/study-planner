@@ -95,3 +95,37 @@ button:hover {
   gap: 10px;
   margin-bottom: 8px;
 }
+
+
+.plans-table-container {
+  margin-top: 30px;
+}
+
+.plans-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.plans-table th,
+.plans-table td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: left;
+}
+
+.plans-table th {
+  background-color: #800000; /* SUTD red */
+  color: white;
+}
+
+.course-pill {
+  display: inline-block;
+  background: #f0f0f0;
+  border-radius: 12px;
+  padding: 4px 8px;
+  margin: 2px;
+  font-size: 0.85rem;
+}

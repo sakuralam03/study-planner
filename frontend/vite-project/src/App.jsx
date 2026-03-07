@@ -10,6 +10,7 @@ import ValidationAlerts from "./components/ValidationAlerts.jsx";
 import ResultsDownload from "./components/ResultsDownload.jsx";
 import ResetPasswordPage from "./components/ResetPasswordPage.jsx";
 import "./PlannerUI.css";
+import Plans from "./components/Plans.jsx";
 
 import sutdLogo from "./assets/sutd_logo.jpg";
 
