@@ -70,8 +70,8 @@ button:hover {
 /* Header input inside term card */
 /* Make header input smaller */
 .term-card input[type="text"] {
-  width: 60%;          /* only 60% of the card width */
-  max-width: 250px;    /* never grow beyond 250px */
+  width: 30%;          /* only 30% of the card width */
+  max-width: 200px;    /* never grow beyond 200px */
   padding: 6px;
   margin-bottom: 10px;
   border: 1px solid #aaa;
