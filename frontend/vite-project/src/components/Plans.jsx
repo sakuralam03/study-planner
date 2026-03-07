@@ -20,11 +20,14 @@ export default function Plans({ studentId, plans }) {
             <tr key={termIndex}>
               <td>{term.header}</td>
               <td>
-                {term.courses.map((c, i) => (
-                  <span key={i} className="course-pill">
-                    {c.code} {c.passed ? "✓" : ""}
-                  </span>
-                ))}
+                {term.courses.map((c, i) => {
+                  if (!c) return null; // skip null entries
+                  return (
+                    <span key={i} className="course-pill">
+                      {c.code || ""} {c.passed ? "✓" : ""}
+                    </span>
+                  );
+                })}
               </td>
             </tr>
           ))}
