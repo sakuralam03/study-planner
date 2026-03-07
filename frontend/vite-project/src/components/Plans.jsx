@@ -1,43 +1,35 @@
-function Plans({ studentId, plans }) {
+export default function Plans({ studentId, plans }) {
+  if (!plans || !plans.length) {
+    return <p>No saved plans yet.</p>;
+  }
+
+  const plan = plans[0];
+
   return (
-    <div>
-      <h2>Saved Plans for {studentId}</h2>
-      {(!plans || plans.length === 0) ? (
-        <p>No plans found.</p>
-      ) : (
-        <ul>
-          {plans.map(plan => (
-            <li key={plan._id}>
-              <strong>Saved At:</strong> {new Date(plan.savedAt).toLocaleString()} <br />
-              <strong>Selection:</strong>
-              <ul>
-                {Object.entries(plan.selection).map(([term, data]) => (
-                  <li key={term}>
-                    {data.header || `Term ${term}`}: {data.courses?.map(c => c ? (c.code + (c.passed ? " ✓" : "")) : "")
-               .filter(Boolean)
-               .join(", ") || "No courses"}
-
-
-                  </li>
+    <div className="plans-table-container">
+      <h2>Saved Plan for Student {studentId}</h2>
+      <table className="plans-table">
+        <thead>
+          <tr>
+            <th>Term</th>
+            <th>Courses</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(plan.selection).map(([termIndex, term]) => (
+            <tr key={termIndex}>
+              <td>{term.header}</td>
+              <td>
+                {term.courses.map((c, i) => (
+                  <span key={i} className="course-pill">
+                    {c.code} {c.passed ? "✓" : ""}
+                  </span>
                 ))}
-              </ul>
-              <strong>Results:</strong>
-              {plan.results ? (
-                <div>
-                  <p><strong>Unmet:</strong> {plan.results.unmet?.join(", ") || "None"}</p>
-                  <p><strong>Fulfilled Tracks:</strong> {plan.results.fulfilledTracks?.join(", ") || "None"}</p>
-                  <p><strong>Fulfilled Minors:</strong> {plan.results.fulfilledMinors?.join(", ") || "None"}</p>
-                  <p><strong>Credit Status:</strong> {JSON.stringify(plan.results.creditStatus)}</p>
-                </div>
-              ) : (
-                "No results saved"
-              )}
-            </li>
+              </td>
+            </tr>
           ))}
-        </ul>
-      )}
+        </tbody>
+      </table>
     </div>
   );
 }
-
-export default Plans;
