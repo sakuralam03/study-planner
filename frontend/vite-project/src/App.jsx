@@ -10,7 +10,7 @@ import ValidationAlerts from "./components/ValidationAlerts.jsx";
 import ResultsDownload from "./components/ResultsDownload.jsx";
 import ResetPasswordPage from "./components/ResetPasswordPage.jsx";
 import "./PlannerUI.css";
-import Plans from "./components/Plans.jsx";
+import Planstable from "./components/Planstable.jsx";
 
 import sutdLogo from "./assets/sutd_logo.jpg";
 
@@ -130,7 +130,7 @@ function PlannerUI({
         Logout
       </button>
 
-      <Plans studentId={user.studentId} plans={plans.slice(0, 1)} />
+      <Planstable studentId={user.studentId} plans={plans.slice(0, 1)} />
 
       <section>
         <h2>Term Planner</h2>
