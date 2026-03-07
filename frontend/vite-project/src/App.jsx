@@ -38,39 +38,39 @@ const TermCard = memo(function TermCard({
   const coursesForTerm = termData.courses || [];
 
   return (
-    <div style={{ border: "1px solid #ccc", padding: "10px" }}>
-      <h3>{header}</h3>
-      <input
-        type="text"
-        value={header}
-        onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
-      />
-      {Array.from({ length: 5 }).map((_, slotIndex) => {
-
-const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
-
-
-  return (
-    <div key={slotIndex} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-      <CourseDropdown
-        courses={courses}
-        value={slot.code}
-        onSelect={(courseCode) =>
-          handleCourseSelect(termIndex + 1, slotIndex, courseCode)
-        }
-      />
-      <label>
+    <div className="term-card">
+      <div className="term-card-header">
+        <h3>{header}</h3>
         <input
-          type="checkbox"
-          checked={slot.passed || false}
-          onChange={() => handlePassedToggle(termIndex + 1, slotIndex)}
+          type="text"
+          value={header}
+          onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
         />
-        Passed
-      </label>
-    </div>
-  );
-})}
+      </div>
 
+      {Array.from({ length: 5 }).map((_, slotIndex) => {
+        const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
+
+        return (
+          <div key={slotIndex} className="course-row">
+            <CourseDropdown
+              courses={courses}
+              value={slot.code}
+              onSelect={(courseCode) =>
+                handleCourseSelect(termIndex + 1, slotIndex, courseCode)
+              }
+            />
+            <label>
+              <input
+                type="checkbox"
+                checked={slot.passed || false}
+                onChange={() => handlePassedToggle(termIndex + 1, slotIndex)}
+              />
+              Passed
+            </label>
+          </div>
+        );
+      })}
     </div>
   );
 }, (prevProps, nextProps) => {
@@ -78,6 +78,7 @@ const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
   const nextTerm = nextProps.selection[nextProps.termIndex + 1];
   return JSON.stringify(prevTerm) === JSON.stringify(nextTerm);
 });
+
 
 /* ---------------- Helpers ---------------- */
 function flattenSelection(selection) {

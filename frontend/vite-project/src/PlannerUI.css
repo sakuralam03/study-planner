@@ -68,17 +68,24 @@ button:hover {
 }
 
 /* Header input inside term card */
-/* Make header input smaller */
-.term-card input[type="text"] {
-  width: 30%;          /* only 30% of the card width */
-  max-width: 200px;    /* never grow beyond 200px */
+.term-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.term-card-header h3 {
+  margin: 0;
+}
+
+.term-card-header input[type="text"] {
+  width: 200px;   /* fixed smaller size */
   padding: 6px;
-  margin-bottom: 10px;
   border: 1px solid #aaa;
   border-radius: 4px;
   font-size: 0.95rem;
-  box-sizing: border-box;
 }
+
 
 
 /* Course dropdown + passed checkbox row */
