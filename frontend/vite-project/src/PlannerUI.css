@@ -130,35 +130,3 @@ button:hover {
   margin: 2px;
   font-size: 0.85rem;
 }
-.results-table-container {
-  margin-top: 30px;
-}
-
-.results-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.results-table th,
-.results-table td {
-  border: 1px solid #ccc;
-  padding: 10px;
-  text-align: left;
-}
-
-.results-table th {
-  background-color: #800000; /* SUTD red */
-  color: white;
-}
-
-.status-pass {
-  color: green;
-  font-weight: bold;
-}
-
-.status-fail {
-  color: red;
-  font-weight: bold;
-}
