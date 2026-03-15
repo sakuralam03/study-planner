@@ -188,7 +188,7 @@ app.get("/progress", async (req, res) => {
 });
 
 
-import ExcelJS from "exceljs";
+
 
 app.post("/download-excel", async (req, res) => {
   const { selection, results } = req.body;
