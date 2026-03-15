@@ -188,6 +188,8 @@ app.get("/progress", async (req, res) => {
 });
 
 
+import ExcelJS from "exceljs";
+
 app.post("/download-excel", async (req, res) => {
   const { selection, results } = req.body;
 
@@ -196,21 +198,75 @@ app.post("/download-excel", async (req, res) => {
   const inputSheet = workbook.addWorksheet("Selection");
   const resultsSheet = workbook.addWorksheet("Validation Results");
 
-  // Header row
-  inputSheet.addRow(["Term", "Course 1", "Course 2", "Course 3", "Course 4"]);
+  // Styled header row for Selection
+  const headerRow = inputSheet.addRow(["Term", "Course 1", "Course 2", "Course 3", "Course 4"]);
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF800000" } }; // SUTD red
+  headerRow.alignment = { horizontal: "center" };
 
-  Object.entries(selection).forEach(([term, data]) => {
-    inputSheet.addRow([
-      data.header || `Term ${term}`,
-      ...(data.courses || []).map(c => c && c.code ? c.code : "")
-
-    ]);
+  // Add borders to header cells
+  headerRow.eachCell(cell => {
+    cell.border = {
+      top: { style: "thin" },
+      left: { style: "thin" },
+      bottom: { style: "thin" },
+      right: { style: "thin" }
+    };
   });
 
+  // Data rows with pass/fail styling
+  Object.entries(selection).forEach(([term, data]) => {
+    const row = inputSheet.addRow([
+      data.header || `Term ${term}`,
+      ...(data.courses || []).map(c => c && c.code ? c.code : "")
+    ]);
+
+    (data.courses || []).forEach((c, idx) => {
+      if (!c) return;
+      const cell = row.getCell(idx + 2); // +2 because first column is Term
+      if (c.passed) {
+        cell.font = { color: { argb: "FF008000" }, bold: true }; // green
+      } else {
+        cell.font = { color: { argb: "FFFF0000" }, bold: true }; // red
+      }
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" }
+      };
+    });
+  });
+
+  // Auto-fit column widths
+  inputSheet.columns.forEach(column => {
+    let maxLength = 0;
+    column.eachCell({ includeEmpty: true }, cell => {
+      const value = cell.value ? cell.value.toString() : "";
+      maxLength = Math.max(maxLength, value.length);
+    });
+    column.width = maxLength < 10 ? 10 : maxLength + 2;
+  });
+
+  // Results sheet with styled labels
   resultsSheet.addRow(["Unmet", (results.unmet || []).join(", ")]);
   resultsSheet.addRow(["Fulfilled Tracks", (results.fulfilledTracks || []).join(", ")]);
   resultsSheet.addRow(["Fulfilled Minors", (results.fulfilledMinors || []).join(", ")]);
   resultsSheet.addRow(["Credits", JSON.stringify(results.creditStatus || {})]);
+
+  resultsSheet.eachRow(row => {
+    row.eachCell(cell => {
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" }
+      };
+    });
+  });
+
+  resultsSheet.getRow(1).font = { bold: true };
+  resultsSheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDDDDD" } };
 
   res.setHeader(
     "Content-Type",
@@ -222,7 +278,6 @@ app.post("/download-excel", async (req, res) => {
   );
 
   await workbook.xlsx.write(res);
-
 });
 
 
