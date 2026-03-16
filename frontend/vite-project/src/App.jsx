@@ -129,6 +129,21 @@ function PlannerUI({
       >
         Logout
       </button>
+      <section>
+  <h2>Feedback</h2>
+  <p>We’d love to hear your thoughts!</p>
+  <button
+    onClick={() =>
+      window.open(
+        "https://forms.cloud.microsoft/pages/responsepage.aspx?id=drd2NJDpck-5UGJImDFiPQxmyCU2JThOpTs29W1KnvVUNk9HMDM0VFFFR0UzTDZBUDY5OEtITjM0WS4u&route=shorturl",
+        "_blank"
+      )
+    }
+  >
+    Give Feedback
+  </button>
+</section>
+
 
       <Plans studentId={user.studentId} plans={plans.slice(0, 1)} />
 
