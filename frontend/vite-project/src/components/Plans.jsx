@@ -8,6 +8,12 @@ export default function Plans({ studentId, plans }) {
   return (
     <div className="plans-table-container">
       <h2>Saved Plan for Student {studentId}</h2>
+
+      {/* Show pillar at the top */}
+      {plan.pillar && (
+        <p><strong>Pillar:</strong> {plan.pillar}</p>
+      )}
+
       <table className="plans-table">
         <thead>
           <tr>

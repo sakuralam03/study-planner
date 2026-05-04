@@ -57,8 +57,8 @@ export async function loadPlan(studentId) {
 }
 
 // --- Plans: save ---
-export async function savePlan(studentId, selection, results) {
-  const token = localStorage.getItem("token"); // ✅ fetch token here
+export async function savePlan(studentId, selection, results,pillar) {
+  const token = localStorage.getItem("token"); //  fetch token here
 
   const res = await fetch(`${API_BASE}/save-plan`, {
     method: "POST",
@@ -66,7 +66,7 @@ export async function savePlan(studentId, selection, results) {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`,
     },
-    body: JSON.stringify({ studentId, selection, results }),
+    body: JSON.stringify({ studentId, selection, results,pillar }),
   });
   if (!res.ok) throw new Error(`Failed to save plan: ${res.status}`);
   return res.json();

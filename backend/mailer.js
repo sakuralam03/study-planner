@@ -15,10 +15,10 @@ async function sendEmail(to, subject, text) {
       to,
       subject,
       text
-    });
-    console.log("✅ Email sent to", to);
+    })
+    console.log(" Email sent to", to);
   } catch (err) {
-    console.error("❌ Error sending email:", err);
+    console.error(" Error sending email:", err);
     throw err;
   }
 }
