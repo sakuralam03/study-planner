@@ -56,14 +56,15 @@ const TermCard = memo(function TermCard({
           onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
         />
       </div>
-      <label className="filter-toggle">
-        <input
-          type="checkbox"
-          checked={filterByTerm}
-          onChange={e => setFilterByTerm(e.target.checked)}
-        />
-        {" "}Filter by term
-      </label>
+   <label className="filter-toggle">
+  <input
+    type="checkbox"
+    checked={filterByTerm}
+    onChange={e => setFilterByTerm(e.target.checked)}
+  />
+  <span>Filter by term</span>
+</label>
+
       {Array.from({ length: 5 }).map((_, slotIndex) => {
         const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
         return (
