@@ -1,323 +1,44 @@
-// App.jsx
-import { useState, useEffect, memo } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import LoginPage from "./components/LoginPage.jsx";
-import Plans from "./components/Plans.jsx";
-import TermsModal from "./components/TermsModal.jsx";
-import CourseDropdown from "./components/CourseDropdown.jsx";
-import ValidationAlerts from "./components/ValidationAlerts.jsx";
-import ResultsDownload from "./components/ResultsDownload.jsx";
-import ResetPasswordPage from "./components/ResetPasswordPage.jsx";
-import "./PlannerUI.css";
-import sutdLogo from "./assets/sutd_logo.jpg";
-import {
-  getTracks,
-  getMinors,
-  getCourses,
-  getTermTemplate,
-  validateSelection,
-  loadPlan,
-  savePlan,
-} from "./services/api";
-
-/* ---------------- Constants ---------------- */
-const VACATION_DEFAULTS = {
-  4: { header: "Vacation", courses: [] },
-  7: { header: "Vacation", courses: [] },
-  9: { header: "Vacation", courses: [] },
-};
-
-/* ---------------- TermCard ---------------- */
-const TermCard = memo(function TermCard({
-  termIndex,
-  selection,
-  courses,
-  handleCourseSelect,
-  handleHeaderChange,
-  handlePassedToggle,
-}) {
-  const termData =
-    selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
-  const header = termData.header;
-  const coursesForTerm = termData.courses || [];
-  return (
-    <div className="term-card">
-      <div className="term-card-header">
-        <h3>{header}</h3>
-        <input
-          type="text"
-          value={header}
-          onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
-        />
-      </div>
-      {Array.from({ length: 5 }).map((_, slotIndex) => {
-        const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
-        return (
-          <div key={slotIndex} className="course-row">
-            <CourseDropdown
-              courses={courses}
-              value={slot.code}
-              onSelect={(courseCode) =>
-                handleCourseSelect(termIndex + 1, slotIndex, courseCode)
-              }
-            />
-            <label>
-              <input
-                type="checkbox"
-                checked={slot.passed || false}
-                onChange={() => handlePassedToggle(termIndex + 1, slotIndex)}
-              />
-              Passed
-            </label>
-          </div>
-        );
-      })}
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  const prevTerm = prevProps.selection[prevProps.termIndex + 1];
-  const nextTerm = nextProps.selection[nextProps.termIndex + 1];
-  return JSON.stringify(prevTerm) === JSON.stringify(nextTerm);
-});
-
-/* ---------------- Helpers ---------------- */
-function flattenSelection(selection) {
-  const allCodes = [];
-  Object.values(selection).forEach(term => {
-    if (term.courses) {
-      allCodes.push(...term.courses.filter(c => c?.passed).map(c => c.code));
-    }
-  });
-  return allCodes;
-}
-
-/* ---------------- PlannerUI ---------------- */
-function PlannerUI({
-  user,
-  setUser,
-  agreed,
-  setAgreed,
-  plans,
-  selection,
-  courses,
-  numTerms,
-  setNumTerms,
-  handleCourseSelect,
-  handleHeaderChange,
-  handlePassedToggle,
-  results,
-  savePlanHandler,
-  selectedTrack,
-  selectedMinor,
-  groupedMinors,
-}) {
-  if (!user) return <LoginPage onLogin={setUser} />;
-  if (!agreed) return <TermsModal onAgree={() => setAgreed(true)} />;
-  return (
-    <div className="planner-container">
-      <img src={sutdLogo} alt="SUTD Logo" className="planner-logo" />
-      <h1>Student Study Planner</h1>
-      <button
-        onClick={() => {
-          setUser(null);
-          setAgreed(false);
-        }}
-        className="logout-btn"
-      >
-        Logout
-      </button>
-      <section>
-        <h2>Feedback</h2>
-        <p>We'd love to hear your thoughts!</p>
-        <button
-          onClick={() =>
-            window.open(
-              "https://forms.cloud.microsoft/pages/responsepage.aspx?id=drd2NJDpck-5UGJImDFiPQxmyCU2JThOpTs29W1KnvVUNk9HMDM0VFFFR0UzTDZBUDY5OEtITjM0WS4u&route=shorturl",
-              "_blank"
-            )
-          }
-        >
-          Give Feedback
-        </button>
-      </section>
-      <Plans studentId={user.studentId} plans={plans.slice(0, 1)} />
-      <section>
-        <h2>Term Planner</h2>
-        <label>
-          Number of terms:{" "}
-          <input
-            type="number"
-            min="1"
-            max="20"
-            value={numTerms}
-            onChange={(e) => setNumTerms(Number(e.target.value) || 1)}
-          />
-        </label>
-        <div className="term-grid">
-          {Array.from({ length: numTerms }).map((_, termIndex) => (
-            <TermCard
-              key={`term-${termIndex}`}
-              termIndex={termIndex}
-              selection={selection}
-              courses={courses}
-              handleCourseSelect={handleCourseSelect}
-              handleHeaderChange={handleHeaderChange}
-              handlePassedToggle={handlePassedToggle}
-            />
-          ))}
-        </div>
-      </section>
-      <section>
-        <h2>Validation Alerts</h2>
-        <ValidationAlerts
-          selection={selection}
-          track={selectedTrack}
-          minor={selectedMinor}
-          minorRules={groupedMinors[selectedMinor]}
-        />
-      </section>
-      {results && (
-        <>
-          <ResultsDownload
-            selection={selection}
-            results={results}
-            studentId={user.studentId}
-          />
-          <button onClick={savePlanHandler}>Save Plan</button>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ---------------- App ---------------- */
-export default function App() {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("user");
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [agreed, setAgreed] = useState(false);
-  const [tracks, setTracks] = useState([]);
-  const [minors, setMinors] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [termTemplate, setTermTemplate] = useState([]);
-  const [selection, setSelection] = useState({ ...VACATION_DEFAULTS });
-  const [results, setResults] = useState(null);
-  const [selectedTrack, setSelectedTrack] = useState("");
-  const [selectedMinor, setSelectedMinor] = useState("");
-  const [plans, setPlans] = useState([]);
-  const [numTerms, setNumTerms] = useState(12);
-
-  /* Persist login */
-  useEffect(() => {
-    if (user) localStorage.setItem("user", JSON.stringify(user));
-    else localStorage.removeItem("user");
-  }, [user]);
-
-  /* Load static data */
-  useEffect(() => {
-    async function loadData() {
-      setTracks((await getTracks()).tracks);
-      setMinors((await getMinors()).minors);
-      setCourses((await getCourses()).courses);
-      setTermTemplate((await getTermTemplate()).termTemplate);
-    }
-    loadData();
-  }, []);
-
-  /* Auto-validate */
-  useEffect(() => {
-    if (!Object.keys(selection).length) return;
-    validateSelection(flattenSelection(selection)).then(setResults);
-  }, [selection]);
-
-  /* Load plans */
-  useEffect(() => {
-    if (!user) return;
-    loadPlan(user.studentId).then(data => {
-      setPlans(data.plans);
-      if (data.plans?.length) {
-        // Merge: vacation defaults first, then saved plan on top
-        setSelection({ ...VACATION_DEFAULTS, ...data.plans[0].selection });
-        setResults(data.plans[0].results);
-      }
-      // If no saved plan, initial state already has the defaults — nothing to do
-    });
-  }, [user]);
-
-  /* Handlers */
-  const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
-    setSelection(prev => {
-      const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-      const courses = [...term.courses];
-      const prevSlot = courses[slotIndex] || {};
-      courses[slotIndex] = { ...prevSlot, code: courseCode, passed: true };
-      return { ...prev, [termIndex]: { ...term, courses } };
-    });
-  };
-
-  const handleHeaderChange = (termIndex, newHeader) => {
-    setSelection(prev => {
-      const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-      return { ...prev, [termIndex]: { ...term, header: newHeader } };
-    });
-  };
-
-  const handlePassedToggle = (termIndex, slotIndex) => {
-    setSelection(prev => {
-      const term = prev[termIndex];
-      const courses = [...term.courses];
-      if (courses[slotIndex]) {
-        courses[slotIndex] = { ...courses[slotIndex], passed: !courses[slotIndex].passed };
-      }
-      return { ...prev, [termIndex]: { ...term, courses } };
-    });
-  };
-
-  async function savePlanHandler() {
-    const validatedResults = await validateSelection(flattenSelection(selection));
-    const data = await savePlan(user.studentId, selection, validatedResults);
-    if (data.success) {
-      const updated = await loadPlan(user.studentId);
-      setPlans(updated.plans);
-      alert("Plan saved successfully!");
-    }
+export default function Plans({ studentId, plans }) {
+  if (!plans || !plans.length) {
+    return <p>No saved plans yet.</p>;
   }
 
-  const groupedMinors = minors.reduce((acc, m) => {
-    (acc[m.minor_name] ||= []).push(m);
-    return acc;
-  }, {});
+  const plan = plans[0];
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <PlannerUI
-              user={user}
-              setUser={setUser}
-              agreed={agreed}
-              setAgreed={setAgreed}
-              plans={plans}
-              selection={selection}
-              courses={courses}
-              numTerms={numTerms}
-              setNumTerms={setNumTerms}
-              handleCourseSelect={handleCourseSelect}
-              handleHeaderChange={handleHeaderChange}
-              handlePassedToggle={handlePassedToggle}
-              results={results}
-              savePlanHandler={savePlanHandler}
-              selectedTrack={selectedTrack}
-              selectedMinor={selectedMinor}
-              groupedMinors={groupedMinors}
-            />
-          }
-        />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-      </Routes>
-    </BrowserRouter>
+    <div className="plans-table-container">
+      <h2>Saved Plan for Student {studentId}</h2>
+
+      {/* Show pillar at the top */}
+      {plan.pillar && (
+        <p><strong>Pillar:</strong> {plan.pillar}</p>
+      )}
+
+      <table className="plans-table">
+        <thead>
+          <tr>
+            <th>Term</th>
+            <th>Courses</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(plan.selection).map(([termIndex, term]) => (
+            <tr key={termIndex}>
+              <td>{term.header}</td>
+              <td>
+                {term.courses.map((c, i) => {
+                  if (!c) return null; // skip null entries
+                  return (
+                    <span key={i} className="course-pill">
+                      {c.code || ""} {c.passed ? "✓" : ""}
+                    </span>
+                  );
+                })}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

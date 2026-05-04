@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import sutdLogo from "../assets/sutd_logo.jpg";
-
 import "../LoginPage.css";
-
 
 export default function LoginPage({ onLogin }) {
   const [mode, setMode] = useState("login"); // "login" | "register" | "reset"
@@ -11,6 +9,7 @@ export default function LoginPage({ onLogin }) {
   const [year, setYear] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [pillar, setPillar] = useState("");   // <-- NEW state
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(""); // "success" | "error"
 
@@ -30,7 +29,7 @@ export default function LoginPage({ onLogin }) {
         res = await fetch(`${API_URL}/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, studentId, year, email, password }),
+          body: JSON.stringify({ name, studentId, year, email, password, pillar }), // <-- include pillar
         });
       } else if (mode === "reset") {
         res = await fetch(`${API_URL}/request-password-reset`, {
@@ -92,6 +91,17 @@ export default function LoginPage({ onLogin }) {
               <label>
                 Email:
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </label>
+              <label>
+                Pillar:
+                <select value={pillar} onChange={(e) => setPillar(e.target.value)} required>
+                  <option value="">Select Pillar</option>
+                  <option value="ISTD">ISTD</option>
+                  <option value="EPD">EPD</option>
+                  <option value="ESD">ESD</option>
+                  <option value="ASD">ASD</option>
+                  <option value="DAI">DAI</option>
+                </select>
               </label>
             </>
           )}
