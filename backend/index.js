@@ -116,7 +116,7 @@ app.get("/courses", async (req, res) => {
       };
 
       // Auto-assign Freshmore courses to Grid 1 or 2
-      if (type === "freshmore") {
+      if (type === "Freshmore") {
         if (termOffered.includes("1")) {
           course.autoGrid = "Grid 1";   // Term 1 → Grid 1
         }
