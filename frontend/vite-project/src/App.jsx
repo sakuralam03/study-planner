@@ -247,11 +247,10 @@ useEffect(() => {
       }
     });
 
-    setSelection(prev => ({ ...prev, ...newSelection }));
+    setSelection(newSelection);
   }
   loadData();
 }, []);
-
 
   /* Auto-validate */
   useEffect(() => {
@@ -260,19 +259,18 @@ useEffect(() => {
   }, [selection]);
 
   /* Load plans */
+
   useEffect(() => {
     if (!user) return;
     loadPlan(user.studentId).then(data => {
       setPlans(data.plans);
       if (data.plans?.length) {
-        // Merge: vacation defaults first, then saved plan on top
-        setSelection({ ...VACATION_DEFAULTS, ...data.plans[0].selection });
+        // Use functional update so we get the freshmore-populated selection as the base
+        setSelection(prev => ({ ...prev, ...data.plans[0].selection }));
         setResults(data.plans[0].results);
       }
-      // If no saved plan, initial state already has the defaults — nothing to do
     });
   }, [user]);
-
   /* Handlers */
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection(prev => {
