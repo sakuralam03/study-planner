@@ -213,12 +213,16 @@ export default function App() {
   const [minors, setMinors] = useState([]);
   const [courses, setCourses] = useState([]);
   const [termTemplate, setTermTemplate] = useState([]);
-  const [selection, setSelection] = useState({});
+const [selection, setSelection] = useState({
+  4: { header: "Vacation", courses: [] },
+  7: { header: "Vacation", courses: [] },
+  9: { header: "Vacation", courses: [] },
+});
   const [results, setResults] = useState(null);
   const [selectedTrack, setSelectedTrack] = useState("");
   const [selectedMinor, setSelectedMinor] = useState("");
   const [plans, setPlans] = useState([]);
-  const [numTerms, setNumTerms] = useState(8);
+  const [numTerms, setNumTerms] = useState(12);
 
   /* Persist login */
   useEffect(() => {

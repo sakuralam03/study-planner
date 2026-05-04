@@ -26,7 +26,7 @@ app.use(express.json());
 
 let cache = {};
 app.get("/ping", (req, res) => {
-  res.send("✅ Backend is alive");
+  res.send(" Backend is alive");
 });
 
 
@@ -456,7 +456,7 @@ app.post("/validate-selection", async (req, res) => {
     }
   });
 
-  // ✅ compute once after loop
+  //  compute once after loop
   allSelected = Object.values(selectionByTerm).flat();
 } else {
   // Flat array: treat as single "Term 0"
