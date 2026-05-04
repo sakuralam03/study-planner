@@ -62,7 +62,7 @@ const TermCard = memo(function TermCard({
     checked={filterByTerm}
     onChange={e => setFilterByTerm(e.target.checked)}
   />
-  <span>Filter by term</span>
+  <span>Filter Courses</span>
 </label>
 
       {Array.from({ length: 5 }).map((_, slotIndex) => {

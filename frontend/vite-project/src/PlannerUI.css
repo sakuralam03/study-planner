@@ -144,12 +144,14 @@ button:hover {
 }
 /* Align filter checkbox and label text side by side */
 .filter-toggle {
-  display: flex;
-  align-items: center;   /* vertically center checkbox with text */
-  gap: 6px;              /* space between checkbox and label */
-  margin: 8px 0;         /* optional spacing around the row */
+  display: inline-flex;   /* keeps it inline inside the card */
+  align-items: center;    /* vertically center checkbox and text */
+  gap: 6px;               /* space between checkbox and text */
+  cursor: pointer;        /* make the whole label clickable */
+  font-size: 0.9rem;      /* match your card text size */
 }
 
 .filter-toggle input[type="checkbox"] {
-  margin: 0;             /* remove default extra margin */
+  margin: 0;              /* remove default margin */
 }
+
