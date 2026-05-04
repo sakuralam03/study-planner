@@ -333,6 +333,7 @@ app.post("/register", async (req, res) => {
       year,
       email,
       passwordHash,
+      pillar,
       createdAt: new Date()
     });
 
@@ -362,7 +363,7 @@ app.post("/login", async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    res.json({ success: true, token });
+  res.json({ success: true, token, pillar: user.pillar });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ success: false, error: err.message });

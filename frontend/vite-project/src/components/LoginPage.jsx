@@ -43,7 +43,7 @@ export default function LoginPage({ onLogin }) {
       if (res.ok) {
         if (mode === "login") {
           localStorage.setItem("token", data.token);
-          onLogin({ studentId });
+          onLogin({ studentId, pillar: data.pillar });
           setMessage("");
           setMessageType("");
         } else if (mode === "register") {
