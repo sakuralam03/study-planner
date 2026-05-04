@@ -287,7 +287,7 @@ app.post("/save-plan", async (req, res) => {
        console.log("Incoming save-plan:", req.body);
     const { studentId, selection, results, pillar } = req.body;
     const db = await connectDB();
-    await db.collection("plans").insertOne({ studentId, selection, results, savedAt: new Date() });
+    await db.collection("plans").insertOne({ studentId, selection, results,pillar, savedAt: new Date() });
     res.json({ success: true });  
   } catch (err) {
     console.error("Error saving plan:", err);
