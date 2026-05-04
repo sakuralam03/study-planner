@@ -142,3 +142,14 @@ button:hover {
   margin: 2px;
   font-size: 0.85rem;
 }
+/* Align filter checkbox and label text side by side */
+.filter-toggle {
+  display: flex;
+  align-items: center;   /* vertically center checkbox with text */
+  gap: 6px;              /* space between checkbox and label */
+  margin: 8px 0;         /* optional spacing around the row */
+}
+
+.filter-toggle input[type="checkbox"] {
+  margin: 0;             /* remove default extra margin */
+}
