@@ -1,4 +1,3 @@
-// App.jsx
 import { useState, useEffect, memo } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "./components/LoginPage.jsx";
@@ -36,10 +35,17 @@ const TermCard = memo(function TermCard({
   handleHeaderChange,
   handlePassedToggle,
 }) {
+  const [filterByTerm, setFilterByTerm] = useState(false);
+
   const termData =
     selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
   const header = termData.header;
   const coursesForTerm = termData.courses || [];
+
+  const displayCourses = filterByTerm
+    ? courses.filter(c => c.term_offered?.includes(String(termIndex + 1)))
+    : courses;
+
   return (
     <div className="term-card">
       <div className="term-card-header">
@@ -50,14 +56,21 @@ const TermCard = memo(function TermCard({
           onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
         />
       </div>
+      <label className="filter-toggle">
+        <input
+          type="checkbox"
+          checked={filterByTerm}
+          onChange={e => setFilterByTerm(e.target.checked)}
+        />
+        {" "}Filter by term
+      </label>
       {Array.from({ length: 5 }).map((_, slotIndex) => {
         const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
         return (
           <div key={slotIndex} className="course-row">
-                <CourseDropdown
-              courses={courses}
+            <CourseDropdown
+              courses={displayCourses}
               value={slot.code}
-              termIndex={termIndex + 1}
               onSelect={(courseCode) =>
                 handleCourseSelect(termIndex + 1, slotIndex, courseCode)
               }
@@ -216,42 +229,35 @@ export default function App() {
   }, [user]);
 
   /* Load static data */
-useEffect(() => {
-  async function loadData() {
-    const tracksData = await getTracks();
-    setTracks(tracksData.tracks);
-
-    const minorsData = await getMinors();
-    setMinors(minorsData.minors);
-
-    const coursesData = await getCourses();
-    setCourses(coursesData.courses);
-
-    setTermTemplate((await getTermTemplate()).termTemplate);
-
-    // Auto‑populate Freshmore courses into Term 1 and 2
-    const freshmoreCourses = coursesData.courses.filter(c => c.type === "FRESHMORE");
-    const newSelection = { ...VACATION_DEFAULTS };
-
-    freshmoreCourses.forEach(course => {
-      if (course.autoGrid === "Grid 1") {
-        (newSelection[1] ||= { header: "Term 1", courses: [] }).courses.push({
-          code: course.course_code,
-          passed: true
-        });
-      }
-      if (course.autoGrid === "Grid 2") {
-        (newSelection[2] ||= { header: "Term 2", courses: [] }).courses.push({
-          code: course.course_code,
-          passed: true
-        });
-      }
-    });
-
-    setSelection(newSelection);
-  }
-  loadData();
-}, []);
+  useEffect(() => {
+    async function loadData() {
+      const tracksData = await getTracks();
+      setTracks(tracksData.tracks);
+      const minorsData = await getMinors();
+      setMinors(minorsData.minors);
+      const coursesData = await getCourses();
+      setCourses(coursesData.courses);
+      setTermTemplate((await getTermTemplate()).termTemplate);
+      const freshmoreCourses = coursesData.courses.filter(c => c.type === "FRESHMORE");
+      const newSelection = { ...VACATION_DEFAULTS };
+      freshmoreCourses.forEach(course => {
+        if (course.autoGrid === "Grid 1") {
+          (newSelection[1] ||= { header: "Term 1", courses: [] }).courses.push({
+            code: course.course_code,
+            passed: true
+          });
+        }
+        if (course.autoGrid === "Grid 2") {
+          (newSelection[2] ||= { header: "Term 2", courses: [] }).courses.push({
+            code: course.course_code,
+            passed: true
+          });
+        }
+      });
+      setSelection(newSelection);
+    }
+    loadData();
+  }, []);
 
   /* Auto-validate */
   useEffect(() => {
@@ -260,18 +266,17 @@ useEffect(() => {
   }, [selection]);
 
   /* Load plans */
-
   useEffect(() => {
     if (!user) return;
     loadPlan(user.studentId).then(data => {
       setPlans(data.plans);
       if (data.plans?.length) {
-        // Use functional update so we get the freshmore-populated selection as the base
         setSelection(prev => ({ ...prev, ...data.plans[0].selection }));
         setResults(data.plans[0].results);
       }
     });
   }, [user]);
+
   /* Handlers */
   const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
     setSelection(prev => {
@@ -302,15 +307,14 @@ useEffect(() => {
   };
 
   async function savePlanHandler() {
-  const validatedResults = await validateSelection(flattenSelection(selection));
-  const data = await savePlan(user.studentId, selection, validatedResults, user.pillar);
-  if (data.success) {
-    const updated = await loadPlan(user.studentId);
-    setPlans(updated.plans);
-    alert("Plan saved successfully!");
+    const validatedResults = await validateSelection(flattenSelection(selection));
+    const data = await savePlan(user.studentId, selection, validatedResults, user.pillar);
+    if (data.success) {
+      const updated = await loadPlan(user.studentId);
+      setPlans(updated.plans);
+      alert("Plan saved successfully!");
+    }
   }
-}
-
 
   const groupedMinors = minors.reduce((acc, m) => {
     (acc[m.minor_name] ||= []).push(m);
