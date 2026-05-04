@@ -215,15 +215,43 @@ export default function App() {
   }, [user]);
 
   /* Load static data */
-  useEffect(() => {
-    async function loadData() {
-      setTracks((await getTracks()).tracks);
-      setMinors((await getMinors()).minors);
-      setCourses((await getCourses()).courses);
-      setTermTemplate((await getTermTemplate()).termTemplate);
-    }
-    loadData();
-  }, []);
+useEffect(() => {
+  async function loadData() {
+    const tracksData = await getTracks();
+    setTracks(tracksData.tracks);
+
+    const minorsData = await getMinors();
+    setMinors(minorsData.minors);
+
+    const coursesData = await getCourses();
+    setCourses(coursesData.courses);
+
+    setTermTemplate((await getTermTemplate()).termTemplate);
+
+    // Auto‑populate Freshmore courses into Term 1 and 2
+    const freshmoreCourses = coursesData.courses.filter(c => c.type === "freshmore");
+    const newSelection = { ...VACATION_DEFAULTS };
+
+    freshmoreCourses.forEach(course => {
+      if (course.autoGrid === "Grid 1") {
+        (newSelection[1] ||= { header: "Term 1", courses: [] }).courses.push({
+          code: course.course_code,
+          passed: false
+        });
+      }
+      if (course.autoGrid === "Grid 2") {
+        (newSelection[2] ||= { header: "Term 2", courses: [] }).courses.push({
+          code: course.course_code,
+          passed: false
+        });
+      }
+    });
+
+    setSelection(prev => ({ ...prev, ...newSelection }));
+  }
+  loadData();
+}, []);
+
 
   /* Auto-validate */
   useEffect(() => {

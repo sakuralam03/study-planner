@@ -91,24 +91,55 @@ app.get("/courses", async (req, res) => {
     const rows = mapRowsWithHeaders(raw);
 
     // Normalize values while keeping readable names
-    const courses = rows.map(r => ({
-      id: r.id,
-      course_code: normalize(r["course_code"]),
-      course_name: (r["course_name"] ?? "").trim(), // keep readable
-      credits: parseInt((r["credits"] ?? "").toString().trim(), 10) || 0,
-      type: normalize(r["type"]),
-      pillar: normalize(r["pillar"]),
-      track_tags: (r["track_tags"] ?? "").toString().trim(),
-      minor_tags: (r["minor_tags"] ?? "").toString().trim()
-    }));
+    const courses = rows.map(r => {
+      const type = normalize(r["type"]);
+      const pillar = normalize(r["pillar"]);
 
-    const filtered = term ? courses.filter(c => String(c.term_offered) === String(term)) : courses;
+      // Split term_offered into array (e.g. "1,2" → ["1","2"])
+      const termOffered = (r["term_offered"] ?? "")
+        .toString()
+        .split(",")
+        .map(t => t.trim())
+        .filter(Boolean);
+
+      // Base course object
+      const course = {
+        id: r.id,
+        course_code: normalize(r["course_code"]),
+        course_name: (r["course_name"] ?? "").trim(),
+        credits: parseInt((r["credits"] ?? "").toString().trim(), 10) || 0,
+        type,
+        pillar,
+        track_tags: (r["track_tags"] ?? "").toString().trim(),
+        minor_tags: (r["minor_tags"] ?? "").toString().trim(),
+        term_offered: termOffered
+      };
+
+      // Auto-assign Freshmore courses to Grid 1 or 2
+      if (type === "freshmore") {
+        if (termOffered.includes("1")) {
+          course.autoGrid = "Grid 1";   // Term 1 → Grid 1
+        }
+        if (termOffered.includes("2")) {
+          course.autoGrid = "Grid 2";   // Term 2 → Grid 2
+        }
+      }
+
+      return course;
+    });
+
+    // If a term query param is provided, filter by it
+    const filtered = term
+      ? courses.filter(c => c.term_offered.includes(String(term)))
+      : courses;
+
     res.json({ courses: filtered });
   } catch (err) {
     console.error(err);
     res.status(500).send(err.message);
   }
 });
+
 
 app.get("/prerequisites", async (req, res) => {
   try {
