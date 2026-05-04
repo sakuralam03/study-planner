@@ -54,9 +54,10 @@ const TermCard = memo(function TermCard({
         const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
         return (
           <div key={slotIndex} className="course-row">
-            <CourseDropdown
+                <CourseDropdown
               courses={courses}
               value={slot.code}
+              termIndex={termIndex + 1}
               onSelect={(courseCode) =>
                 handleCourseSelect(termIndex + 1, slotIndex, courseCode)
               }
@@ -236,13 +237,13 @@ useEffect(() => {
       if (course.autoGrid === "Grid 1") {
         (newSelection[1] ||= { header: "Term 1", courses: [] }).courses.push({
           code: course.course_code,
-          passed: false
+          passed: true
         });
       }
       if (course.autoGrid === "Grid 2") {
         (newSelection[2] ||= { header: "Term 2", courses: [] }).courses.push({
           code: course.course_code,
-          passed: false
+          passed: true
         });
       }
     });
