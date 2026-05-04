@@ -229,7 +229,7 @@ useEffect(() => {
     setTermTemplate((await getTermTemplate()).termTemplate);
 
     // Auto‑populate Freshmore courses into Term 1 and 2
-    const freshmoreCourses = coursesData.courses.filter(c => c.type === "Freshmore");
+    const freshmoreCourses = coursesData.courses.filter(c => c.type === "FRESHMORE");
     const newSelection = { ...VACATION_DEFAULTS };
 
     freshmoreCourses.forEach(course => {
