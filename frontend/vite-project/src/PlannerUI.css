@@ -100,6 +100,14 @@ button:hover {
   gap: 10px;
   margin-bottom: 8px;
 }
+/* Course dropdown styling */
+.course-row select {
+  font-size: 0.85rem;   /* smaller text */
+  padding: 4px 6px;     /* reduce padding */
+  width: 150px;         /* narrower dropdown */
+  border: 1px solid #aaa;
+  border-radius: 4px;
+}
 
 
 .plans-table-container {
