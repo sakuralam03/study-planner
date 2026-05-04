@@ -1,7 +1,6 @@
 // App.jsx
 import { useState, useEffect, memo } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-
 import LoginPage from "./components/LoginPage.jsx";
 import Plans from "./components/Plans.jsx";
 import TermsModal from "./components/TermsModal.jsx";
@@ -10,10 +9,7 @@ import ValidationAlerts from "./components/ValidationAlerts.jsx";
 import ResultsDownload from "./components/ResultsDownload.jsx";
 import ResetPasswordPage from "./components/ResetPasswordPage.jsx";
 import "./PlannerUI.css";
-
-
 import sutdLogo from "./assets/sutd_logo.jpg";
-
 import {
   getTracks,
   getMinors,
@@ -23,6 +19,13 @@ import {
   loadPlan,
   savePlan,
 } from "./services/api";
+
+/* ---------------- Constants ---------------- */
+const VACATION_DEFAULTS = {
+  4: { header: "Vacation", courses: [] },
+  7: { header: "Vacation", courses: [] },
+  9: { header: "Vacation", courses: [] },
+};
 
 /* ---------------- TermCard ---------------- */
 const TermCard = memo(function TermCard({
@@ -37,7 +40,6 @@ const TermCard = memo(function TermCard({
     selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
   const header = termData.header;
   const coursesForTerm = termData.courses || [];
-
   return (
     <div className="term-card">
       <div className="term-card-header">
@@ -48,10 +50,8 @@ const TermCard = memo(function TermCard({
           onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
         />
       </div>
-
       {Array.from({ length: 5 }).map((_, slotIndex) => {
         const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
-
         return (
           <div key={slotIndex} className="course-row">
             <CourseDropdown
@@ -79,7 +79,6 @@ const TermCard = memo(function TermCard({
   const nextTerm = nextProps.selection[nextProps.termIndex + 1];
   return JSON.stringify(prevTerm) === JSON.stringify(nextTerm);
 });
-
 
 /* ---------------- Helpers ---------------- */
 function flattenSelection(selection) {
@@ -114,12 +113,10 @@ function PlannerUI({
 }) {
   if (!user) return <LoginPage onLogin={setUser} />;
   if (!agreed) return <TermsModal onAgree={() => setAgreed(true)} />;
-
   return (
     <div className="planner-container">
       <img src={sutdLogo} alt="SUTD Logo" className="planner-logo" />
       <h1>Student Study Planner</h1>
-
       <button
         onClick={() => {
           setUser(null);
@@ -130,23 +127,20 @@ function PlannerUI({
         Logout
       </button>
       <section>
-  <h2>Feedback</h2>
-  <p>We’d love to hear your thoughts!</p>
-  <button
-    onClick={() =>
-      window.open(
-        "https://forms.cloud.microsoft/pages/responsepage.aspx?id=drd2NJDpck-5UGJImDFiPQxmyCU2JThOpTs29W1KnvVUNk9HMDM0VFFFR0UzTDZBUDY5OEtITjM0WS4u&route=shorturl",
-        "_blank"
-      )
-    }
-  >
-    Give Feedback
-  </button>
-</section>
-
-
+        <h2>Feedback</h2>
+        <p>We'd love to hear your thoughts!</p>
+        <button
+          onClick={() =>
+            window.open(
+              "https://forms.cloud.microsoft/pages/responsepage.aspx?id=drd2NJDpck-5UGJImDFiPQxmyCU2JThOpTs29W1KnvVUNk9HMDM0VFFFR0UzTDZBUDY5OEtITjM0WS4u&route=shorturl",
+              "_blank"
+            )
+          }
+        >
+          Give Feedback
+        </button>
+      </section>
       <Plans studentId={user.studentId} plans={plans.slice(0, 1)} />
-
       <section>
         <h2>Term Planner</h2>
         <label>
@@ -158,9 +152,7 @@ function PlannerUI({
             value={numTerms}
             onChange={(e) => setNumTerms(Number(e.target.value) || 1)}
           />
-
         </label>
-
         <div className="term-grid">
           {Array.from({ length: numTerms }).map((_, termIndex) => (
             <TermCard
@@ -175,7 +167,6 @@ function PlannerUI({
           ))}
         </div>
       </section>
-
       <section>
         <h2>Validation Alerts</h2>
         <ValidationAlerts
@@ -185,7 +176,6 @@ function PlannerUI({
           minorRules={groupedMinors[selectedMinor]}
         />
       </section>
-
       {results && (
         <>
           <ResultsDownload
@@ -200,24 +190,18 @@ function PlannerUI({
   );
 }
 
-
 /* ---------------- App ---------------- */
 export default function App() {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem("user");
     return saved ? JSON.parse(saved) : null;
   });
-
   const [agreed, setAgreed] = useState(false);
   const [tracks, setTracks] = useState([]);
   const [minors, setMinors] = useState([]);
   const [courses, setCourses] = useState([]);
   const [termTemplate, setTermTemplate] = useState([]);
-const [selection, setSelection] = useState({
-  4: { header: "Vacation", courses: [] },
-  7: { header: "Vacation", courses: [] },
-  9: { header: "Vacation", courses: [] },
-});
+  const [selection, setSelection] = useState({ ...VACATION_DEFAULTS });
   const [results, setResults] = useState(null);
   const [selectedTrack, setSelectedTrack] = useState("");
   const [selectedMinor, setSelectedMinor] = useState("");
@@ -253,24 +237,24 @@ const [selection, setSelection] = useState({
     loadPlan(user.studentId).then(data => {
       setPlans(data.plans);
       if (data.plans?.length) {
-        setSelection(data.plans[0].selection);
+        // Merge: vacation defaults first, then saved plan on top
+        setSelection({ ...VACATION_DEFAULTS, ...data.plans[0].selection });
         setResults(data.plans[0].results);
       }
+      // If no saved plan, initial state already has the defaults — nothing to do
     });
   }, [user]);
 
   /* Handlers */
-const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
-  setSelection(prev => {
-    const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
-    const courses = [...term.courses];
-    const prevSlot = courses[slotIndex] || {}; // keep any existing state
-    // Always tick when a course is selected
-    courses[slotIndex] = { ...prevSlot, code: courseCode, passed: true };
-    return { ...prev, [termIndex]: { ...term, courses } };
-  });
-};
-
+  const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
+    setSelection(prev => {
+      const term = prev[termIndex] || { header: `Term ${termIndex}`, courses: [] };
+      const courses = [...term.courses];
+      const prevSlot = courses[slotIndex] || {};
+      courses[slotIndex] = { ...prevSlot, code: courseCode, passed: true };
+      return { ...prev, [termIndex]: { ...term, courses } };
+    });
+  };
 
   const handleHeaderChange = (termIndex, newHeader) => {
     setSelection(prev => {
@@ -312,7 +296,7 @@ const handleCourseSelect = (termIndex, slotIndex, courseCode) => {
           path="/"
           element={
             <PlannerUI
-                            user={user}
+              user={user}
               setUser={setUser}
               agreed={agreed}
               setAgreed={setAgreed}
