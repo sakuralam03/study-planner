@@ -10,7 +10,7 @@ async function connectDB() {
     client = new MongoClient(uri);
     await client.connect();
     db = client.db(); // uses DB from URI
-    console.log("✅ Connected to MongoDB:", db.databaseName);
+    console.log(" Connected to MongoDB:", db.databaseName);
   }
   return db;
 }

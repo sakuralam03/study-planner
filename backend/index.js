@@ -7,41 +7,62 @@ const connectDB = require("./db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const sendEmail = require("./mailer"); // your Nodemailer/SendGrid utility
+const sendEmail = require("./mailer");
 
 const app = express();
 const spreadsheetId = "1eTv6mdqeubvtrqeVE5hxUTjyoQDkACYD8RC4EajF2wo";
 
-// Enable CORS for both local dev and deployed frontend
 app.use(cors({
   origin: [
-    "http://localhost:5173",                  // local dev
-    "https://study-planner-3lqc.vercel.app"   // deployed frontend
+    "http://localhost:5173",
+    "https://study-planner-3lqc.vercel.app"
   ],
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
-
 app.use(express.json());
 
+// ---------- FIX 1: TTL-aware cache (5 min) ----------
+// Previously: cache never expired, and on Vercel cold starts the in-memory
+// cache was lost anyway — giving no benefit while hiding stale data bugs.
+const CACHE_TTL_MS = 5 * 60 * 1000;
 let cache = {};
-app.get("/ping", (req, res) => {
-  res.send(" Backend is alive");
-});
 
-
-// ---------- Helpers ----------
 async function getSheetData(range) {
-  if (cache[range]) return cache[range];
+  const entry = cache[range];
+  if (entry && Date.now() - entry.ts < CACHE_TTL_MS) return entry.data;
   const data = await readSheet(spreadsheetId, range);
-  cache[range] = data;
+  cache[range] = { data, ts: Date.now() };
   return data;
 }
+
+// ---------- FIX 2: Warm the cache once at startup ----------
+// All four sheets are fetched in parallel when the server starts so the
+// first real request hits the cache instead of Google Sheets.
+async function warmCache() {
+  try {
+    await Promise.all([
+      getSheetData("Courses!A:H"),
+      getSheetData("Prerequisites!A:C"),
+      getSheetData("Tracks!A:G"),
+      getSheetData("Minors!A:E"),
+      getSheetData("term template!A:E"),
+    ]);
+    console.log("Cache warmed successfully");
+  } catch (err) {
+    console.warn("Cache warm-up failed (non-fatal):", err.message);
+  }
+}
+
+app.get("/ping", (req, res) => {
+  res.send("Backend is alive");
+});
+
+// ---------- Helpers ----------
 function normalize(str) {
   if (!str) return "";
   return str.toString().trim().replace(/\s+/g, "").toUpperCase();
 }
-
 
 function normalizeArray(arr) {
   if (!arr) return [];
@@ -49,7 +70,6 @@ function normalizeArray(arr) {
   if (typeof arr === "string") return arr.split(",").map(x => normalize(x));
   return [];
 }
-
 
 function mapRowsWithHeaders(data) {
   const headers = (data[0] || []).map(h => (h ?? "").toString().trim().toLowerCase());
@@ -63,18 +83,21 @@ function mapRowsWithHeaders(data) {
 }
 
 function sortTermsNatural(termNames) {
-  // Expect labels like "Term 4", "Term 5"; fallback to given order if no numbers found.
   return [...termNames].sort((a, b) => {
     const na = parseInt(String(a).match(/\d+/)?.[0] || "9999", 10);
     const nb = parseInt(String(b).match(/\d+/)?.[0] || "9999", 10);
     return na - nb;
   });
 }
+
+// Single canonical toCodes used everywhere
 function toCodes(listStr) {
+  if (!listStr) return [];
   return listStr
     .split(",")
-    .map(normalize)
-    .filter(Boolean); // drop empty results
+    .map(s => s.replace(/\t/g, " ").trim())
+    .filter(c => c && c !== "-")
+    .map(normalize);
 }
 
 function validateRegistration({ email, password }) {
@@ -89,20 +112,14 @@ app.get("/courses", async (req, res) => {
     const term = req.query.term;
     const raw = await getSheetData("Courses!A:H");
     const rows = mapRowsWithHeaders(raw);
-
-    // Normalize values while keeping readable names
     const courses = rows.map(r => {
       const type = normalize(r["type"]);
       const pillar = normalize(r["pillar"]);
-
-      // Split term_offered into array (e.g. "1,2" → ["1","2"])
       const termOffered = (r["term_offered"] ?? "")
         .toString()
         .split(",")
         .map(t => t.trim())
         .filter(Boolean);
-
-      // Base course object
       const course = {
         id: r.id,
         course_code: normalize(r["course_code"]),
@@ -114,32 +131,21 @@ app.get("/courses", async (req, res) => {
         minor_tags: (r["minor_tags"] ?? "").toString().trim(),
         term_offered: termOffered
       };
-
-      // Auto-assign Freshmore courses to Grid 1 or 2
       if (type === "FRESHMORE") {
-        if (termOffered.includes("1")) {
-          course.autoGrid = "Grid 1";   // Term 1 → Grid 1
-        }
-        if (termOffered.includes("2")) {
-          course.autoGrid = "Grid 2";   // Term 2 → Grid 2
-        }
+        if (termOffered.includes("1")) course.autoGrid = "Grid 1";
+        if (termOffered.includes("2")) course.autoGrid = "Grid 2";
       }
-
       return course;
     });
-
-    // If a term query param is provided, filter by it
     const filtered = term
       ? courses.filter(c => c.term_offered.includes(String(term)))
       : courses;
-
     res.json({ courses: filtered });
   } catch (err) {
     console.error(err);
     res.status(500).send(err.message);
   }
 });
-
 
 app.get("/prerequisites", async (req, res) => {
   try {
@@ -153,14 +159,8 @@ app.get("/prerequisites", async (req, res) => {
 app.get("/tracks", async (req, res) => {
   try {
     const raw = await getSheetData("Tracks!A:G");
-    if (!raw || raw.length === 0) {
-      throw new Error("No data returned from Tracks sheet");
-    }
-    console.log("Raw Tracks data:", raw);
-
+    if (!raw || raw.length === 0) throw new Error("No data returned from Tracks sheet");
     const rows = mapRowsWithHeaders(raw);
-    console.log("Mapped rows:", rows);
-
     const tracks = rows.map(r => ({
       id: r.id,
       track_name: (r["track_name"] ?? "").toString().trim(),
@@ -171,7 +171,6 @@ app.get("/tracks", async (req, res) => {
       elective_pool_pillars: (r["elective_pool_pillars"] ?? "").toString(),
       elective_min: parseInt((r["elective_min"] ?? "0"), 10) || 0
     }));
-
     res.json({ tracks });
   } catch (err) {
     console.error("Error in /tracks:", err);
@@ -179,13 +178,10 @@ app.get("/tracks", async (req, res) => {
   }
 });
 
-
-
 app.get("/minors", async (req, res) => {
   try {
     const raw = await getSheetData("Minors!A:E");
     const rows = mapRowsWithHeaders(raw);
-
     const minors = rows.map(r => ({
       id: r.id,
       minor_name: (r["minor_name"] ?? "").toString().trim(),
@@ -193,7 +189,6 @@ app.get("/minors", async (req, res) => {
       choice_courses: (r["choice_courses"] ?? "").toString(),
       choice_min: parseInt((r["choice_min"] ?? "0"), 10) || 0
     }));
-
     res.json({ minors });
   } catch (err) {
     res.status(500).send(err.message);
@@ -211,65 +206,36 @@ app.get("/term-template", async (req, res) => {
 });
 
 app.get("/progress", async (req, res) => {
-  try {
-    res.json({ progress: "Not implemented yet" });
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
+  res.json({ progress: "Not implemented yet" });
 });
-
-
-
 
 app.post("/download-excel", async (req, res) => {
   const { selection, results } = req.body;
-
   const workbook = new ExcelJS.Workbook();
-
   const inputSheet = workbook.addWorksheet("Selection");
   const resultsSheet = workbook.addWorksheet("Validation Results");
 
-  // Styled header row for Selection
   const headerRow = inputSheet.addRow(["Term", "Course 1", "Course 2", "Course 3", "Course 4"]);
   headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
-  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF800000" } }; // SUTD red
+  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF800000" } };
   headerRow.alignment = { horizontal: "center" };
-
-  // Add borders to header cells
   headerRow.eachCell(cell => {
-    cell.border = {
-      top: { style: "thin" },
-      left: { style: "thin" },
-      bottom: { style: "thin" },
-      right: { style: "thin" }
-    };
+    cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
   });
 
-  // Data rows with pass/fail styling
   Object.entries(selection).forEach(([term, data]) => {
     const row = inputSheet.addRow([
       data.header || `Term ${term}`,
       ...(data.courses || []).map(c => c && c.code ? c.code : "")
     ]);
-
     (data.courses || []).forEach((c, idx) => {
       if (!c) return;
-      const cell = row.getCell(idx + 2); // +2 because first column is Term
-      if (c.passed) {
-        cell.font = { color: { argb: "FF008000" }, bold: true }; // green
-      } else {
-        cell.font = { color: { argb: "FFFF0000" }, bold: true }; // red
-      }
-      cell.border = {
-        top: { style: "thin" },
-        left: { style: "thin" },
-        bottom: { style: "thin" },
-        right: { style: "thin" }
-      };
+      const cell = row.getCell(idx + 2);
+      cell.font = { color: { argb: c.passed ? "FF008000" : "FFFF0000" }, bold: true };
+      cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
     });
   });
 
-  // Auto-fit column widths
   inputSheet.columns.forEach(column => {
     let maxLength = 0;
     column.eachCell({ includeEmpty: true }, cell => {
@@ -279,47 +245,30 @@ app.post("/download-excel", async (req, res) => {
     column.width = maxLength < 10 ? 10 : maxLength + 2;
   });
 
-  // Results sheet with styled labels
   resultsSheet.addRow(["Unmet", (results.unmet || []).join(", ")]);
   resultsSheet.addRow(["Fulfilled Tracks", (results.fulfilledTracks || []).join(", ")]);
   resultsSheet.addRow(["Fulfilled Minors", (results.fulfilledMinors || []).join(", ")]);
   resultsSheet.addRow(["Credits", JSON.stringify(results.creditStatus || {})]);
-
   resultsSheet.eachRow(row => {
     row.eachCell(cell => {
-      cell.border = {
-        top: { style: "thin" },
-        left: { style: "thin" },
-        bottom: { style: "thin" },
-        right: { style: "thin" }
-      };
+      cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
     });
   });
-
   resultsSheet.getRow(1).font = { bold: true };
   resultsSheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDDDDD" } };
 
-  res.setHeader(
-    "Content-Type",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  );
-  res.setHeader(
-    "Content-Disposition",
-    "attachment; filename=results.xlsx"
-  );
-
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", "attachment; filename=results.xlsx");
   await workbook.xlsx.write(res);
 });
 
-
-
 app.post("/save-plan", async (req, res) => {
   try {
-       console.log("Incoming save-plan:", req.body);
+    console.log("Incoming save-plan:", req.body);
     const { studentId, selection, results, pillar } = req.body;
     const db = await connectDB();
-    await db.collection("plans").insertOne({ studentId, selection, results,pillar, savedAt: new Date() });
-    res.json({ success: true });  
+    await db.collection("plans").insertOne({ studentId, selection, results, pillar, savedAt: new Date() });
+    res.json({ success: true });
   } catch (err) {
     console.error("Error saving plan:", err);
     res.status(500).json({ success: false, error: err.message });
@@ -340,34 +289,15 @@ app.get("/load-plan/:studentId", async (req, res) => {
   }
 });
 
-
 app.post("/register", async (req, res) => {
   try {
-    const { studentId, name, year, password, email,pillar } = req.body;
+    const { studentId, name, year, password, email, pillar } = req.body;
     const db = await connectDB();
-
-    // Validate inputs
     validateRegistration({ email, password });
-
-    // Check if user exists
     const existing = await db.collection("users").findOne({ $or: [{ studentId }, { email }] });
-    if (existing) {
-      return res.status(400).json({ error: "Account already exists" });
-    }
-
-    // Hash password
+    if (existing) return res.status(400).json({ error: "Account already exists" });
     const passwordHash = await bcrypt.hash(password, 10);
-
-    await db.collection("users").insertOne({
-      studentId,
-      name,
-      year,
-      email,
-      passwordHash,
-      pillar,
-      createdAt: new Date()
-    });
-
+    await db.collection("users").insertOne({ studentId, name, year, email, passwordHash, pillar, createdAt: new Date() });
     res.json({ success: true });
   } catch (err) {
     console.error("Register error:", err);
@@ -375,55 +305,34 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// Login
 app.post("/login", async (req, res) => {
   try {
     const { studentId, password } = req.body;
     const db = await connectDB();
-
     const user = await db.collection("users").findOne({ studentId });
     if (!user) return res.status(401).json({ error: "User not found" });
-
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) return res.status(401).json({ error: "Invalid password or username" });
-
-    // Issue JWT
-    const token = jwt.sign(
-      { studentId: user.studentId },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-  res.json({ success: true, token, pillar: user.pillar });
+    const token = jwt.sign({ studentId: user.studentId }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.json({ success: true, token, pillar: user.pillar });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Request password reset
 app.post("/request-password-reset", async (req, res) => {
   try {
     const { email } = req.body;
     const db = await connectDB();
-
     const user = await db.collection("users").findOne({ email });
     if (!user) return res.status(404).json({ error: "Email not found" });
-
     const resetToken = crypto.randomBytes(32).toString("hex");
-    const expiry = Date.now() + 3600000; // 1 hour
-
-    await db.collection("users").updateOne(
-      { email },
-      { $set: { resetToken, resetTokenExpiry: expiry } }
-    );
-
-  const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-
-const resetLink = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
-
+    const expiry = Date.now() + 3600000;
+    await db.collection("users").updateOne({ email }, { $set: { resetToken, resetTokenExpiry: expiry } });
+    const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+    const resetLink = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
     await sendEmail(email, "Password Reset", `Click here to reset your password: ${resetLink}`);
-
     res.json({ success: true });
   } catch (err) {
     console.error("Request reset error:", err);
@@ -431,26 +340,17 @@ const resetLink = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
   }
 });
 
-// Reset password
 app.post("/reset-password", async (req, res) => {
   try {
     const { token, newPassword } = req.body;
     const db = await connectDB();
-
-    const user = await db.collection("users").findOne({
-      resetToken: token,
-      resetTokenExpiry: { $gt: Date.now() }
-    });
-
+    const user = await db.collection("users").findOne({ resetToken: token, resetTokenExpiry: { $gt: Date.now() } });
     if (!user) return res.status(400).json({ error: "Invalid or expired token" });
-
     const newHash = await bcrypt.hash(newPassword, 10);
-
     await db.collection("users").updateOne(
       { _id: user._id },
       { $set: { passwordHash: newHash }, $unset: { resetToken: "", resetTokenExpiry: "" } }
     );
-
     res.json({ success: true });
   } catch (err) {
     console.error("Reset password error:", err);
@@ -458,61 +358,52 @@ app.post("/reset-password", async (req, res) => {
   }
 });
 
-
-
 // --- Validate Selection ---
-
 app.post("/validate-selection", async (req, res) => {
   try {
     const selection = req.body.selection ?? [];
     const isTermStructured = !Array.isArray(selection);
 
-    // --- Flatten courses out of { header, courses } objects ---
     let allSelected = [];
     let selectionByTerm = {};
 
     if (isTermStructured) {
-  const orderedTerms = sortTermsNatural(Object.keys(selection));
-  orderedTerms.forEach(t => {
-    const term = selection[t];
-    if (Array.isArray(term)) {
-      // old shape: term is already an array
-      selectionByTerm[t] = normalizeArray(term);
-    } else if (term && term.courses) {
-      // new shape: term is { header, courses }
-      selectionByTerm[t] = (term.courses || [])
-        .filter(c => c && c.passed)              // only passed courses
-        .map(c => normalize(c.code));            // normalize course code
+      const orderedTerms = sortTermsNatural(Object.keys(selection));
+      orderedTerms.forEach(t => {
+        const term = selection[t];
+        if (Array.isArray(term)) {
+          selectionByTerm[t] = normalizeArray(term);
+        } else if (term && term.courses) {
+          selectionByTerm[t] = (term.courses || [])
+            .filter(c => c && c.passed)
+            .map(c => normalize(c.code));
+        } else {
+          selectionByTerm[t] = [];
+        }
+      });
+      allSelected = Object.values(selectionByTerm).flat();
     } else {
-      selectionByTerm[t] = [];
+      const normalized = normalizeArray(selection);
+      selectionByTerm["Term 0"] = normalized;
+      allSelected = normalized;
     }
-  });
 
-  //  compute once after loop
-  allSelected = Object.values(selectionByTerm).flat();
-} else {
-  // Flat array: treat as single "Term 0"
-  const normalized = normalizeArray(selection);
-  selectionByTerm["Term 0"] = normalized;
-  allSelected = normalized;
-}
-
-
-    // --- course -> term number map ---
     const courseToTerm = {};
     Object.entries(selectionByTerm).forEach(([termName, codes]) => {
       const match = termName.match(/(\d+)(?!.*\d)/);
       const termNum = parseInt(match?.[0] || "0", 10);
-      codes.forEach(code => {
-        courseToTerm[normalize(code)] = termNum;
-      });
+      codes.forEach(code => { courseToTerm[normalize(code)] = termNum; });
     });
 
-    // --- Load sheets and sanitize ---
-    const prereqsRaw = await getSheetData("Prerequisites!A:C");
-    const tracksRaw = await getSheetData("Tracks!A:G");
-    const minorsRaw = await getSheetData("Minors!A:E");
-    const coursesRaw = await getSheetData("Courses!A:H");
+    // ---------- FIX 3: Parallel sheet fetches inside validate-selection ----------
+    // Previously these four awaits ran sequentially, each blocking on Google Sheets.
+    // Now they fire at the same time; total wait = slowest single fetch, not sum of all.
+    const [prereqsRaw, tracksRaw, minorsRaw, coursesRaw] = await Promise.all([
+      getSheetData("Prerequisites!A:C"),
+      getSheetData("Tracks!A:G"),
+      getSheetData("Minors!A:E"),
+      getSheetData("Courses!A:H"),
+    ]);
 
     const tracksRows = mapRowsWithHeaders(tracksRaw);
     const minorsRows = mapRowsWithHeaders(minorsRaw);
@@ -551,26 +442,21 @@ app.post("/validate-selection", async (req, res) => {
       const course = normalize(rawCourse);
       const prereq = normalize(rawPrereq);
       const type = (rawType ?? "").toString().trim();
-
       if (courseToTerm[course] !== undefined) {
         const courseTerm = courseToTerm[course];
         const prereqTerm = courseToTerm[prereq];
-
         if (type === "Pre") {
           if (isTermStructured) {
-            if (prereqTerm === undefined || prereqTerm >= courseTerm) {
+            if (prereqTerm === undefined || prereqTerm >= courseTerm)
               unmet.push(`${course} requires ${prereq} before enrollment`);
-            }
           } else if (prereqTerm === undefined) {
             unmet.push(`${course} requires ${prereq} before enrollment`);
           }
         }
-
         if (type === "Co") {
           if (isTermStructured) {
-            if (prereqTerm === undefined || prereqTerm > courseTerm) {
+            if (prereqTerm === undefined || prereqTerm > courseTerm)
               unmet.push(`${course} requires ${prereq} taken concurrently or in an earlier term`);
-            }
           } else if (prereqTerm === undefined) {
             unmet.push(`${course} requires ${prereq} taken concurrently or earlier`);
           }
@@ -580,12 +466,11 @@ app.post("/validate-selection", async (req, res) => {
 
     function prerequisitesMet(course) {
       const prereqs = prereqRows.filter(r => normalize(r[0]) === course);
-      return prereqs.every(([rawCourse, rawPrereq, rawType]) => {
+      return prereqs.every(([, rawPrereq, rawType]) => {
         const prereq = normalize(rawPrereq);
         const type = (rawType ?? "").toString().trim();
         const courseTerm = courseToTerm[course];
         const prereqTerm = courseToTerm[prereq];
-
         if (type === "Pre") {
           return isTermStructured
             ? prereqTerm !== undefined && prereqTerm < courseTerm
@@ -602,101 +487,63 @@ app.post("/validate-selection", async (req, res) => {
 
     const validSelected = allSelected.filter(c => prerequisitesMet(c));
 
-
-
     // --- 2. Tracks ---
-    function toCodes(listStr) {
-      return listStr
-        .split(",")
-        .map(s => s.replace(/\t/g, " "))
-        .map(normalize)
-        .filter(Boolean);
-    }
-
     function checkGroup(group, selected) {
       const requiredCount = group.requiredCourses.filter(c => selected.includes(c)).length;
       const requiredMet = requiredCount >= group.minCoursesNeeded;
-
       const electivePool = [...group.electivePoolCodes, ...group.electivePoolPillars];
       const electiveCount = electivePool.filter(c => selected.includes(c)).length;
       const electiveMet = electiveCount >= group.electiveMin;
-
       return requiredMet && electiveMet;
     }
 
-const fulfilledTracks = [];
-tracks.forEach(track => {
-  let electivePool = toCodes(track.elective_pool_codes || []);
-  if (track.elective_pool_pillars.includes("ISTD")) {
-    electivePool = electivePool.concat(
-      courses.filter(c => c.pillar === "ISTD" && c.type === "ELECTIVE").map(c => c.course_code)
-    );
-  }
-
-  const group = {
-    requiredCourses: toCodes(track.required_courses || ""),
-    minCoursesNeeded: track.min_courses_needed || 0,
-    electivePoolCodes: electivePool,
-    electivePoolPillars: [], // already merged above
-    electiveMin: track.elective_min || 0
-  };
-
-  if (checkGroup(group, validSelected) && !fulfilledTracks.includes(track.track_name)) {
-    fulfilledTracks.push(track.track_name);
-  }
-});
-
+    const fulfilledTracks = [];
+    tracks.forEach(track => {
+      let electivePool = toCodes(track.elective_pool_codes || "");
+      if (track.elective_pool_pillars.includes("ISTD")) {
+        electivePool = electivePool.concat(
+          courses.filter(c => c.pillar === "ISTD" && c.type === "ELECTIVE").map(c => c.course_code)
+        );
+      }
+      const group = {
+        requiredCourses: toCodes(track.required_courses || ""),
+        minCoursesNeeded: track.min_courses_needed || 0,
+        electivePoolCodes: electivePool,
+        electivePoolPillars: [],
+        electiveMin: track.elective_min || 0
+      };
+      if (checkGroup(group, validSelected) && !fulfilledTracks.includes(track.track_name)) {
+        fulfilledTracks.push(track.track_name);
+      }
+    });
 
     // --- 3. Minors ---
-function toCodes(listStr) {
-  return listStr
-    .split(",")
-    .map(s => s.replace(/\t/g, " ").trim())
-    .filter(c => c && c !== "-")
-    .map(normalize);
-}
+    const fulfilledMinors = [];
+    const minorsByName = {};
+    minors.forEach(m => {
+      const name = m.minor_name;
+      if (!minorsByName[name]) minorsByName[name] = [];
+      minorsByName[name].push({
+        mandatoryCourses: toCodes(m.mandatory_courses || ""),
+        choiceGroup: m.choice_group,
+        choiceCourses: toCodes(m.choice_courses || ""),
+        choiceMin: parseInt(m.choice_min || "0", 10)
+      });
+    });
 
-const fulfilledMinors = [];
-const minorsByName = {};
+    Object.entries(minorsByName).forEach(([minorName, groups]) => {
+      const allMandatory = groups.flatMap(g => g.mandatoryCourses);
+      const mandatoryMet = allMandatory.length === 0 || allMandatory.every(c => allSelected.includes(c));
+      const allGroupsMet = groups.every(group => {
+        if (group.choiceCourses.length === 0) return true;
+        const count = group.choiceCourses.filter(c => validSelected.includes(c)).length;
+        return count >= group.choiceMin;
+      });
+      if (mandatoryMet && allGroupsMet) fulfilledMinors.push(minorName);
+    });
 
-// Group rows by minor name
-minors.forEach(m => {
-  const name = m.minor_name;
-  if (!minorsByName[name]) minorsByName[name] = [];
-  minorsByName[name].push({
-    mandatoryCourses: toCodes(m.mandatory_courses || ""),
-    choiceGroup: m.choice_group,
-    choiceCourses: toCodes(m.choice_courses || ""),
-    choiceMin: parseInt(m.choice_min || "0", 10)
-  });
-});
-
-Object.entries(minorsByName).forEach(([minorName, groups]) => {
-  // 1. Collect all mandatory courses
-  const allMandatory = groups.flatMap(g => g.mandatoryCourses);
-  const mandatoryMet = allMandatory.length === 0 || allMandatory.every(c => allSelected.includes(c));
-
-  // 2. Check each group’s choiceMin
-
-
-const allGroupsMet = groups.every(group => {
-  if (group.choiceCourses.length === 0) return true;
-  const count = group.choiceCourses.filter(c => validSelected.includes(c)).length;
-  console.log(`Minor ${minorName} - Group ${group.choiceGroup}: need ${group.choiceMin}, found ${count}`);
-  return count >= group.choiceMin;
-});
-
-
-  console.log(`Minor ${minorName}: mandatoryMet=${mandatoryMet}, allGroupsMet=${allGroupsMet}`);
-  if (mandatoryMet && allGroupsMet) {
-    fulfilledMinors.push(minorName);
-  }
-});
-
-
-
-  
-let hassCredits = 0;
+    // --- 4. Credits ---
+    let hassCredits = 0;
     let electiveCredits = 0;
     let allElectiveCredits = 0;
     let coreCredits = 0;
@@ -704,11 +551,8 @@ let hassCredits = 0;
     validSelected.forEach(code => {
       const course = courses.find(c => c.course_code === code);
       if (!course) return;
-
       const creditVal = course.credits || 0;
-      const pillar = course.pillar;
-      const type = course.type;
-
+      const { pillar, type } = course;
       if (pillar === "HASS") {
         hassCredits += creditVal;
       } else if (type === "ELECTIVE" && pillar === "ISTD") {
@@ -742,12 +586,18 @@ let hassCredits = 0;
 // --- Start server ---
 const PORT = process.env.PORT || 3000;
 if (require.main === module) {
+  warmCache(); // kick off in background; don't block startup
   app.listen(PORT, () => {
     console.log(`Backend running locally at http://localhost:${PORT}`);
   });
 }
 
 // --- Export for Vercel ---
-module.exports = (req, res) => {
+module.exports = async (req, res) => {
+  // FIX 4: On Vercel, warm the cache on the very first invocation so subsequent
+  // requests within the same function lifetime hit the in-memory cache.
+  if (Object.keys(cache).length === 0) {
+    await warmCache();
+  }
   app(req, res);
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, useRef, memo } from "react";  // FIX: added useRef
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "./components/LoginPage.jsx";
 import Plans from "./components/Plans.jsx";
@@ -26,6 +26,8 @@ const VACATION_DEFAULTS = {
   9: { header: "Vacation", courses: [] },
 };
 
+const VALIDATE_DEBOUNCE_MS = 600; // FIX: debounce delay
+
 /* ---------------- TermCard ---------------- */
 const TermCard = memo(function TermCard({
   termIndex,
@@ -36,16 +38,13 @@ const TermCard = memo(function TermCard({
   handlePassedToggle,
 }) {
   const [filterByTerm, setFilterByTerm] = useState(false);
-
   const termData =
     selection[termIndex + 1] || { header: `Term ${termIndex + 1}`, courses: [] };
   const header = termData.header;
   const coursesForTerm = termData.courses || [];
-
   const displayCourses = filterByTerm
     ? courses.filter(c => c.term_offered?.includes(String(termIndex + 1)))
     : courses;
-
   return (
     <div className="term-card">
       <div className="term-card-header">
@@ -56,15 +55,14 @@ const TermCard = memo(function TermCard({
           onChange={(e) => handleHeaderChange(termIndex + 1, e.target.value)}
         />
       </div>
-   <label className="filter-toggle">
-  <input
-    type="checkbox"
-    checked={filterByTerm}
-    onChange={e => setFilterByTerm(e.target.checked)}
-  />
-  <span>Filter Courses</span>
-</label>
-
+      <label className="filter-toggle">
+        <input
+          type="checkbox"
+          checked={filterByTerm}
+          onChange={e => setFilterByTerm(e.target.checked)}
+        />
+        <span>Filter Courses</span>
+      </label>
       {Array.from({ length: 5 }).map((_, slotIndex) => {
         const slot = coursesForTerm[slotIndex] || { code: "", passed: false };
         return (
@@ -223,22 +221,33 @@ export default function App() {
   const [plans, setPlans] = useState([]);
   const [numTerms, setNumTerms] = useState(12);
 
+  // FIX: flag so the auto-validate useEffect skips the update that comes
+  // immediately after loading a saved plan (results already exist from the plan)
+  const justLoadedPlan = useRef(false);
+
   /* Persist login */
   useEffect(() => {
     if (user) localStorage.setItem("user", JSON.stringify(user));
     else localStorage.removeItem("user");
   }, [user]);
 
-  /* Load static data */
+  /* FIX: fetch all four data sources in parallel with Promise.all.
+     The old code awaited them one by one, so startup cost was the sum of
+     all four round-trips. Now it equals just the slowest single one. */
   useEffect(() => {
     async function loadData() {
-      const tracksData = await getTracks();
+      const [tracksData, minorsData, coursesData, termTemplateData] = await Promise.all([
+        getTracks(),
+        getMinors(),
+        getCourses(),
+        getTermTemplate(),
+      ]);
+
       setTracks(tracksData.tracks);
-      const minorsData = await getMinors();
       setMinors(minorsData.minors);
-      const coursesData = await getCourses();
       setCourses(coursesData.courses);
-      setTermTemplate((await getTermTemplate()).termTemplate);
+      setTermTemplate(termTemplateData.termTemplate);
+
       const freshmoreCourses = coursesData.courses.filter(c => c.type === "FRESHMORE");
       const newSelection = { ...VACATION_DEFAULTS };
       freshmoreCourses.forEach(course => {
@@ -260,10 +269,24 @@ export default function App() {
     loadData();
   }, []);
 
-  /* Auto-validate */
+  /* FIX: debounced auto-validate.
+     The old code fired a backend call on every single state change — every
+     checkbox toggle, every dropdown pick. Now it waits 600ms after the last
+     change before sending, and skips entirely when a saved plan was just
+     loaded (those results already came back with the plan). */
   useEffect(() => {
     if (!Object.keys(selection).length) return;
-    validateSelection(flattenSelection(selection)).then(setResults);
+
+    if (justLoadedPlan.current) {
+      justLoadedPlan.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      validateSelection(selection).then(setResults).catch(console.error);
+    }, VALIDATE_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer); // cancel if selection changes again within the window
   }, [selection]);
 
   /* Load plans */
@@ -272,6 +295,7 @@ export default function App() {
     loadPlan(user.studentId).then(data => {
       setPlans(data.plans);
       if (data.plans?.length) {
+        justLoadedPlan.current = true; // FIX: tell the validate effect to skip once
         setSelection(prev => ({ ...prev, ...data.plans[0].selection }));
         setResults(data.plans[0].results);
       }
@@ -308,7 +332,7 @@ export default function App() {
   };
 
   async function savePlanHandler() {
-    const validatedResults = await validateSelection(flattenSelection(selection));
+    const validatedResults = await validateSelection(selection);
     const data = await savePlan(user.studentId, selection, validatedResults, user.pillar);
     if (data.success) {
       const updated = await loadPlan(user.studentId);

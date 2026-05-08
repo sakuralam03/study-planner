@@ -11,5 +11,5 @@ try {
   console.log("Client email:", parsed.client_email);
   console.log("Project ID:", parsed.project_id);
 } catch (err) {
-  console.error("❌ Failed to parse GOOGLE_APPLICATION_CREDENTIALS:", err.message);
+  console.error(" Failed to parse GOOGLE_APPLICATION_CREDENTIALS:", err.message);
 }
